@@ -13,6 +13,7 @@ class Player(MySprite):
         self.sprite_sheet = pygame.image.load(
             image_filename).convert_alpha()
         # animation
+        self.time_since_last_move = 0
         self.frame = 0
         self.frame_width = frame_width
         self.frame_height = frame_height
@@ -26,7 +27,8 @@ class Player(MySprite):
         self.orientation = 'horizontal'
         # image and attributes
         rect = (0, 0, frame_width, frame_height)
-        self.image = self.sprite_sheet.subsurface(rect)
+        self.image = self.sprite_sheet.subsurface(
+            rect)
         self.rect = self.image.get_rect()
         self.x = point.x
         self.y = point.y
@@ -54,7 +56,7 @@ class Player(MySprite):
     def reset_velocity(self):
         self.velocity = {'x': 0, 'y': 0}
 
-    def move(self, current_time):
+    def move(self):
         if self.key_dict['up']:
             if self.y <= 0:
                 self.y = 0
@@ -83,20 +85,19 @@ class Player(MySprite):
                 self.velocity['x'] = self.speed_x
             self.is_facing = 'right'
             self.orientation = 'horizontal'
-        if self.velocity['x'] != 0 or self.velocity['y'] != 0:
-            self.animate(current_time)
 
         self.previous_coords.x = self.x
         self.previous_coords.y = self.y
         self.x += self.velocity['x']
         self.y += self.velocity['y']
 
-    def animate(self, current_time):
-        if current_time > (self.last_time + self.animation_delay):
+    def animate(self, dt):
+        self.time_since_last_move = dt + self.time_since_last_move
+        if self.time_since_last_move > self.animation_delay:
+            self.time_since_last_move = 0
             self.frame += 1
             if self.frame > self.last_frame:
                 self.frame = self.first_frame
-            self.last_time = current_time
             if self.frame != self.old_frame:
                 frame_x = (self.frame % self.ncols) * self.frame_width
                 frame_y = (self.frame // self.ncols) * self.frame_height
@@ -107,10 +108,15 @@ class Player(MySprite):
                 if (self.orientation == 'horizontal' and
                         self.is_facing == 'right'):
                     self.image = pygame.transform.flip(self.image, True, False)
-                if self.orientation == 'vertical' and self.is_facing == 'up':
+                if (
+                    self.orientation == 'vertical'
+                    and self.is_facing == 'up'
+                ):
                     self.image = pygame.transform.flip(self.image, False, True)
                 self.old_frame = self.frame
 
-    def update(self, current_time):
+    def update(self, dt):
         self.reset_velocity()
-        self.move(current_time)
+        self.move()
+        if self.velocity['x'] != 0 or self.velocity['y'] != 0:
+            self.animate(dt)

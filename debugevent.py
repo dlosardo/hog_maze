@@ -17,6 +17,6 @@ class DebugEvent(object):
         if event.type in (KEYUP, KEYDOWN):
             key = event.key
         t = "Event: {}, {}".format(
-            event.type, key)
+            pygame.event.event_name(event.type), key)
         self.text = self.font.render(
             t, True, settings.BLACK, settings.WHITE)
