@@ -74,8 +74,8 @@ class MazeGame(object):
 
     def get_x_y_for_vertex(self, vertex):
         row, col = self.maze_graph.get_row_col_for_vertex(vertex)
-        left = col * self.cell_width + self.rect.topleft[1] + self.cell_height/2
-        top = row * self.cell_height + self.rect.topleft[0] + self.cell_width/4
+        left = col * self.cell_width + self.rect.topleft[1]  # + self.cell_height/2
+        top = row * self.cell_height + self.rect.topleft[0]  # + self.cell_width/4
         return (left, top)
 
     def set_maze_walls(self):

@@ -46,9 +46,9 @@ class PlayerInputComponent(HogMazeComponent):
                 self.owner.component_dict['MOVABLE'].velocity['x']\
                         = self.owner.component_dict['MOVABLE'].speed
         elif self.key_dict['eat']:
-            print("LEON")
-            # if self.owner.get_component('INVENTORY')['tomatoes'] > 0:
-                # self.owner.get_component('INVENTORY')['tomatoes'] -= 1
+            print("EAT TOMATO")
+            if self.owner.get_state('INVENTORY').inventory['tomato'] > 0:
+                self.owner.get_state('INVENTORY').inventory['tomato'] -= 1
 
         if self.owner.component_dict['MOVABLE'].is_moving():
             self.owner.component_dict['ANIMATION'].is_animating = True

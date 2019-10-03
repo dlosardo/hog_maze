@@ -1,5 +1,3 @@
-from util.util import Point
-
 WINDOW_WIDTH = 32 * 30  # 640
 # WINDOW_HEIGHT = 32 * 23  # 480
 WINDOW_HEIGHT = 32 * 22
@@ -20,15 +18,6 @@ sprite_sheet_dict = {0: {'image_filename':
                      3: {'image_filename': "assets/tomatoes.png", "ncols": 2,
                          'animation_delay': 400}
                      }
-hoggy_starting_state = {
-    'point': Point(x=0, y=12),
-    'speed_x': 6, 'speed_y': 6,
-    'image_filename': "assets/hoggy_spritesheet_2.png",
-    'frame_width': 32,
-    'frame_height': 32,
-    'ncols': 4,
-    'animation_delay': HOGGY_ANIMATION_DELAY
-}
 
 maze_starting_state = {
     'maze_width': 10,

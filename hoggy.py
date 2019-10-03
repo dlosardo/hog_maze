@@ -44,8 +44,30 @@ def update_components(dt, mousex, mousey, event_type):
 
 def draw_game():
     WORLD.fill(settings.WHITE)
+    GAME.current_maze.image.fill(settings.WHITE)
+    GAME.hud.fill(settings.BLACK)
+
     for name, obj in GAME.current_objects.items():
-        obj.draw(WORLD)
+        for sprite in obj:
+            if not sprite.in_hud:
+                GAME.current_maze.image.blit(sprite.image,
+                                             (sprite.x, sprite.y)
+                                             )
+            else:
+                GAME.hud.blit(sprite.image,
+                              (sprite.x, sprite.y)
+                              )
+                ntomatoes = GAME.current_objects[
+                  'MAIN_PLAYER'].sprite.get_state(
+                      'INVENTORY').inventory.get('tomato')
+                if not ntomatoes:
+                    ntomatoes = 0
+                draw_text(GAME.hud, "Tomatoes: {}".format(ntomatoes),
+                          24, 60, 10, settings.ORANGE)
+    WORLD.blit(GAME.current_maze.image,
+               (0, settings.HUD_OFFSETY))
+    WORLD.blit(GAME.hud,
+               (0, 0))
 
 
 class Game():
@@ -94,6 +116,10 @@ class Game():
         if len(cubby_vertices) > 0:
             for cubby_vertex in cubby_vertices:
                 x, y = self.current_maze.get_x_y_for_vertex(cubby_vertex)
+                centerx = x + self.current_maze.cell_width / 2
+                centery = y + self.current_maze.cell_height / 2
+                x = centerx - 32/2
+                y = centery - 32/2
                 tomato = actor_obj.ActorObject(
                     **{'x': x, 'y': y, 'height': 32, 'width': 32,
                        'sprite_sheet_key': 3,
@@ -252,47 +278,22 @@ def game_loop():
     while not game_quit:
         dt = FPS_CLOCK.get_time()
         events = pygame.event.get()
+        mousex, mousey = pygame.mouse.get_pos()
         # print([pygame.event.event_name(e.type) for e in events])
         if len(events) == 0:
-            event_type = "no-action"
-        else:
-            for event in events:
-                # print(pygame.event.event_name(event.type))
+            events.append("no-action")
+        for event in events:
+            if event == "no-action":
+                event_type = event
+            else:
+                print(pygame.event.event_name(event.type))
                 event_type = handle_keys(event)
-                if event_type == "QUIT":
-                    game_quit = True
-                    continue
-        mousex, mousey = pygame.mouse.get_pos()
-        # print("THE EVENT: {}".format(
-        # pygame.event.event_name(event.type)))
-        update_components(dt, mousex, mousey, event_type)
-        handle_collisions()
-        WORLD.fill(settings.WHITE)
-        GAME.current_maze.image.fill(settings.WHITE)
-        GAME.hud.fill(settings.BLACK)
-
-        for name, obj in GAME.current_objects.items():
-            for sprite in obj:
-                if not sprite.in_hud:
-                    GAME.current_maze.image.blit(sprite.image,
-                                                 (sprite.x, sprite.y)
-                                                 )
-                else:
-                    GAME.hud.blit(sprite.image,
-                                  (sprite.x, sprite.y)
-                                  )
-                    ntomatoes = GAME.current_objects[
-                      'MAIN_PLAYER'].sprite.get_state(
-                          'INVENTORY').inventory.get('tomato')
-                    if not ntomatoes:
-                        ntomatoes = 0
-                    draw_text(GAME.hud, "Tomatoes: {}".format(ntomatoes),
-                              24, 60, 10, settings.ORANGE)
-        # draw_game()
-        WORLD.blit(GAME.current_maze.image,
-                   (0, settings.HUD_OFFSETY))
-        WORLD.blit(GAME.hud,
-                   (0, 0))
+            if event_type == "QUIT":
+                game_quit = True
+                continue
+            update_components(dt, mousex, mousey, event_type)
+            handle_collisions()
+        draw_game()
 
         if settings.IS_DEBUG:
             DEBUGSCREEN.update(
