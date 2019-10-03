@@ -1,12 +1,25 @@
 from util.util import Point
 
 WINDOW_WIDTH = 32 * 30  # 640
-WINDOW_HEIGHT = 32 * 23  # 480
+# WINDOW_HEIGHT = 32 * 23  # 480
+WINDOW_HEIGHT = 32 * 22
+HUD_OFFSETX = 0
+HUD_OFFSETY = 32 * 2
 FPS = 30  # frames per second setting
 IS_DEBUG = True
 
-HOGGY_ANIMATION_DELAY = 80
+HOGGY_ANIMATION_DELAY = 45
 
+sprite_sheet_dict = {0: {'image_filename':
+                         "assets/hoggy_spritesheet_2.png",
+                         'ncols': 4,
+                         'animation_delay': HOGGY_ANIMATION_DELAY},
+                     1: {'image_filename': "assets/wall.png", "ncols": 1},
+                     2: {'image_filename': "assets/refresh_64.png", "ncols": 2,
+                         'animation_delay': 10},
+                     3: {'image_filename': "assets/tomatoes.png", "ncols": 2,
+                         'animation_delay': 400}
+                     }
 hoggy_starting_state = {
     'point': Point(x=0, y=12),
     'speed_x': 6, 'speed_y': 6,
@@ -14,7 +27,7 @@ hoggy_starting_state = {
     'frame_width': 32,
     'frame_height': 32,
     'ncols': 4,
-    'animation_delay': 80
+    'animation_delay': HOGGY_ANIMATION_DELAY
 }
 
 maze_starting_state = {

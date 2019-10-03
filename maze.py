@@ -43,6 +43,13 @@ class Vertex(object):
     def is_top_bottom_vertex(self):
         return self.is_top_vertex or self.is_bottom_vertex
 
+    @property
+    def is_corner_vertex(self):
+        return (self.is_top_vertex and self.is_right_vertex) or\
+                (self.is_top_vertex and self.is_left_vertex) or\
+                (self.is_bottom_vertex and self.is_right_vertex) or\
+                (self.is_bottom_vertex and self.is_left_vertex)
+
 
 class MazeGraph(object):
     EMPTY = 0
@@ -80,6 +87,12 @@ class MazeGraph(object):
                     v.is_right_vertex = True
                 self.maze_layout[row][col] = v
                 c += 1
+
+    def get_row_col_for_vertex(self, vertex):
+        for row in range(0, self.maze_height):
+            for col in range(0, self.maze_width):
+                if self.maze_layout[row][col] == vertex:
+                    return (row, col)
 
     def set_graph(self):
         self.set_maze_layout()
@@ -146,6 +159,21 @@ class MazeGraph(object):
                 return True
         return False
 
+    def is_cubby_vertex(self, vertex):
+        neighbors_with_edge = 0
+        for neighbor in self.graph[vertex]:
+            if self.edges[frozenset([vertex, neighbor])] != MazeGraph.EMPTY\
+               and not neighbor.is_corner_vertex:
+                neighbors_with_edge += 1
+        return neighbors_with_edge == 3
+
+    def all_cubby_vertices(self):
+        cubby_vertices = []
+        for vertex in self.graph.keys():
+            if self.is_cubby_vertex(vertex):
+                cubby_vertices.append(vertex)
+        return cubby_vertices
+
     def create_maze_path(self, start_vertex_name):
         current_vertex = self.get_vertex_by_name(start_vertex_name)
         self.start_vertex = current_vertex
@@ -163,7 +191,7 @@ class MazeGraph(object):
                 self.edges[frozenset(
                     [previous_vertex, current_vertex])] = MazeGraph.EMPTY
                 if not self.any_right_unvisited_vertices():
-                    print("End Vertex: {}".format(self.end_vertex))
+                    #  print("End Vertex: {}".format(self.end_vertex))
                     if self.end_vertex is None:
                         self.end_vertex = current_vertex
                         current_vertex.is_exit_vertex = True
@@ -181,7 +209,7 @@ class MazeGraph(object):
                 maze_layout_display += "{}".format(self.maze_layout[row][col])
                 maze_layout_display += " "
             maze_layout_display += "\n"
-        print(maze_layout_display)
+        #  print(maze_layout_display)
 
     def print_maze_path(self):
         maze_path = ""
@@ -257,11 +285,11 @@ class MazeGraph(object):
             maze_path += "\n"
         maze_path += bottom_layer
         top_layer += maze_path
-        print(top_layer)
+        #  print(top_layer)
 
     def get_cell_walls(self, row, col):
         vertex = self.maze_layout[row][col]
-        print(vertex)
+        #  print(vertex)
         if col < (self.maze_width - 1):
             vertex_right = self.maze_layout[row][col + 1]
             edge = frozenset([vertex, vertex_right])
