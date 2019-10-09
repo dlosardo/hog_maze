@@ -5,6 +5,7 @@ from component import HogMazeComponent
 class PlayerInputComponent(HogMazeComponent):
     def __init__(self):
         super(PlayerInputComponent, self).__init__('PLAYER_INPUT')
+        self.just_ate = False
         self.key_dict = {'up': False,
                          'down': False,
                          'left': False,
@@ -46,9 +47,11 @@ class PlayerInputComponent(HogMazeComponent):
                 self.owner.component_dict['MOVABLE'].velocity['x']\
                         = self.owner.component_dict['MOVABLE'].speed
         elif self.key_dict['eat']:
-            print("EAT TOMATO")
-            if self.owner.get_state('INVENTORY').inventory['tomato'] > 0:
-                self.owner.get_state('INVENTORY').inventory['tomato'] -= 1
+            if not self.just_ate:
+                print("EAT TOMATO")
+                if self.owner.get_state('INVENTORY').inventory['tomato'] > 0:
+                    self.owner.get_state('INVENTORY').inventory['tomato'] -= 1
+                    self.just_ate = True
 
         if self.owner.component_dict['MOVABLE'].is_moving():
             self.owner.component_dict['ANIMATION'].is_animating = True

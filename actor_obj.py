@@ -24,7 +24,8 @@ class ActorObject(pygame.sprite.Sprite):
                  clickable=None,
                  player_input=None,
                  pickupable=None,
-                 inventory=None
+                 inventory=None,
+                 maze=None
                  ):
         pygame.sprite.Sprite.__init__(self)
         self.width = width
@@ -47,13 +48,17 @@ class ActorObject(pygame.sprite.Sprite):
         self.y = y
         self.is_dead = False
         self.in_hud = in_hud
-        # state
+        # states
         self.state_dict = {
-            'INVENTORY': None
+            'INVENTORY': None,
+            'MAZE': None
         }
         self.state_dict['INVENTORY'] = inventory
         if self.state_dict['INVENTORY']:
             self.state_dict['INVENTORY'].owner = self
+        self.state_dict['MAZE'] = maze
+        if self.state_dict['MAZE']:
+            self.state_dict['MAZE'].owner = self
         # components
         self.component_dict = {
             'MOVABLE': None,
@@ -83,44 +88,20 @@ class ActorObject(pygame.sprite.Sprite):
             self.component_dict['PICKUPABLE'].owner = self
 
     def has_component(self, component):
-        if self.component_dict['MOVABLE']:
-            if self.component_dict['MOVABLE'].get_component_type()\
-               == component:
-                return True
-        if self.component_dict['ORIENTATION']:
-            if self.component_dict['ORIENTATION'].get_component_type()\
-               == component:
-                return True
-        if self.component_dict['ANIMATION']:
-            if self.component_dict['ANIMATION'].get_component_type()\
-               == component:
-                return True
-        if self.component_dict['PLAYER_INPUT']:
-            if self.component_dict['PLAYER_INPUT'].get_component_type()\
-               == component:
-                return True
-        if self.component_dict['CLICKABLE']:
-            if self.component_dict['CLICKABLE'].get_component_type()\
-               == component:
-                return True
-        if self.component_dict['PICKUPABLE']:
-            if self.component_dict['PICKUPABLE'].get_component_type()\
-               == component:
-                return True
-        return False
+        return self.component_dict[component]
 
     def get_component(self, component):
         return self.component_dict[component]
 
     def has_state(self, state):
-        if self.state_dict['INVENTORY']:
-            if self.state_dict['INVENTORY'].get_state_type()\
-               == state:
-                return True
-        return False
+        return self.state_dict[state]
 
     def get_state(self, state):
         return self.state_dict[state]
+
+    def set_pos(self, x, y):
+        self.x = x
+        self.y = y
 
     @property
     def x(self):

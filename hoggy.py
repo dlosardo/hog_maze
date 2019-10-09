@@ -2,7 +2,7 @@ import pygame
 from pygame.locals import (
     QUIT, KEYDOWN, KEYUP, K_UP, K_DOWN,
     K_LEFT, K_RIGHT, MOUSEMOTION,
-    MOUSEBUTTONUP, K_SPACE
+    MOUSEBUTTONUP, K_SPACE, K_d
 )
 import settings
 import actor_obj
@@ -14,10 +14,15 @@ from clickable_component import ClickableComponent
 from orientation_component import OrientationComponent
 from pickupable_component import PickupableComponent
 from inventory_state import InventoryState
+from maze_state import MazeState
 from maze_game import MazeGame
 import debuginfo
 import debugmouse
 import debugevent
+
+MOVE_AI_HOGGY_TIMEOUT = 1000
+AI_HOGGY_MOVE = pygame.USEREVENT + 1
+RELOADED_EVENT = pygame.USEREVENT + 2
 
 COMPONENTS = ['PLAYER_INPUT', 'MOVABLE', 'ORIENTATION',
               'ANIMATION', 'CLICKABLE', 'PICKUPABLE']
@@ -55,19 +60,33 @@ def draw_game():
                                              )
             else:
                 GAME.hud.blit(sprite.image,
-                              (sprite.x, sprite.y)
-                              )
-                ntomatoes = GAME.current_objects[
-                  'MAIN_PLAYER'].sprite.get_state(
+                              (sprite.x, sprite.y))
+                tomato = actor_obj.ActorObject(
+                    **{'x': 10, 'y': 10, 'height': 32, 'width': 32,
+                       'sprite_sheet_key': 3,
+                       'name_object': 'hud_tomato'
+                       })
+                GAME.hud.blit(tomato.image,
+                              (tomato.x, tomato.y))
+                ntomatoes = GAME.main_player.get_state(
                       'INVENTORY').inventory.get('tomato')
                 if not ntomatoes:
                     ntomatoes = 0
-                draw_text(GAME.hud, "Tomatoes: {}".format(ntomatoes),
-                          24, 60, 10, settings.ORANGE)
+                draw_text(GAME.hud, "x",
+                          24, 55, 28, settings.ORANGE)
+                draw_text(GAME.hud, "{}".format(ntomatoes),
+                          40, 75, 30, settings.ORANGE)
     WORLD.blit(GAME.current_maze.image,
                (0, settings.HUD_OFFSETY))
     WORLD.blit(GAME.hud,
                (0, 0))
+
+
+def draw_debug(dt):
+    DEBUGSCREEN.update(GAME.main_player, dt)
+    WORLD.blit(DEBUGSCREEN.text, (0, 465))
+    WORLD.blit(DEBUGM.text, (0, 400))
+    WORLD.blit(DEBUGEVENT.text, (0, 440))
 
 
 class Game():
@@ -85,6 +104,9 @@ class Game():
         self.current_objects.update(
             {'PICKUPS': actor_obj.ActorObjectGroup(
                 'PICKUP')})
+        self.current_objects.update(
+            {'AI_HOGGY': actor_obj.ActorObjectGroupSingle(
+                'AI_HOGGY')})
         self.current_maze = None
         self.reset_maze(**settings.maze_starting_state)
         self.hud = pygame.Surface([settings.WINDOW_WIDTH,
@@ -92,17 +114,22 @@ class Game():
                                   ).convert()
         self.hud_rect = self.hud.get_rect()
 
+    @property
+    def main_player(self):
+        return self.current_objects['MAIN_PLAYER'].sprite
+
+    @main_player.setter
+    def main_player(self, main_player_sprite):
+        self.current_objects['MAIN_PLAYER'].add(
+            main_player_sprite)
+
     def reset_maze(self, maze_width, maze_height,
                    area_width, area_height,
                    wall_scale, starting_vertex_name=0):
         if self.current_maze:
             self.current_maze.reset()
-            self.current_objects[
-                'MAIN_PLAYER'].sprite.x = self.current_objects[
-                'MAIN_PLAYER'].sprite.start_x
-            self.current_objects[
-                'MAIN_PLAYER'].sprite.y = self.current_objects[
-                'MAIN_PLAYER'].sprite.start_y
+            self.main_player.x = self.main_player.start_x
+            self.main_player.y = self.main_player.start_y
         else:
             self.current_maze = MazeGame(maze_width, maze_height,
                                          area_width, area_height,
@@ -112,21 +139,24 @@ class Game():
         self.current_objects['MAZE_WALLS'].empty()
         self.current_objects['MAZE_WALLS'].add(
             self.current_maze.maze_walls)
+        self.place_tomatoes()
+        # self.current_maze.maze_graph.traverse_graph(starting_vertex_name)
+
+    def place_tomatoes(self):
         cubby_vertices = self.current_maze.maze_graph.all_cubby_vertices()
         if len(cubby_vertices) > 0:
             for cubby_vertex in cubby_vertices:
-                x, y = self.current_maze.get_x_y_for_vertex(cubby_vertex)
-                centerx = x + self.current_maze.cell_width / 2
-                centery = y + self.current_maze.cell_height / 2
-                x = centerx - 32/2
-                y = centery - 32/2
                 tomato = actor_obj.ActorObject(
-                    **{'x': x, 'y': y, 'height': 32, 'width': 32,
+                    **{'x': 0, 'y': 0, 'height': 32, 'width': 32,
                        'sprite_sheet_key': 3,
                        'name_object': 'tomato',
                        'animation': AnimationComponent(is_animating=True),
                        'pickupable': PickupableComponent('tomato')
                        })
+                x, y = self.current_maze.topleft_sprite_center_in_vertex(
+                    cubby_vertex, tomato)
+                tomato.x = x
+                tomato.y = y
                 self.current_objects['PICKUPS'].add(tomato)
 
 
@@ -162,7 +192,7 @@ def hoggy_collision_tomatoes(sprite, colliding_pickups):
     for pickup in colliding_pickups:
         if pickup.get_component('PICKUPABLE').name_instance == "tomato":
             pickup.get_component('PICKUPABLE').picked_up = True
-            print("GETTING TOMATO")
+            # print("GETTING TOMATO")
             sprite.get_state('INVENTORY').add_item(
                 pickup.get_component('PICKUPABLE').name_instance)
 
@@ -194,13 +224,16 @@ def game_initialize():
                                      settings.WINDOW_HEIGHT +
                                      settings.HUD_OFFSETY))
     FPS_CLOCK = pygame.time.Clock()
+    pygame.time.set_timer(AI_HOGGY_MOVE, MOVE_AI_HOGGY_TIMEOUT)
 
 
 def game_new():
     global GAME
     GAME = Game()
     main_player = actor_obj.ActorObject(
-        **{'x': 0, 'y': 12, 'height': 32, 'width': 32,
+        **{'x': GAME.current_maze.cell_width / 2,
+           'y': GAME.current_maze.cell_height / 2,
+           'height': 32, 'width': 32,
            'sprite_sheet_key': 0,
            'name_object': 'hoggy',
            'animation': AnimationComponent(),
@@ -220,8 +253,18 @@ def game_new():
         'clickable': ClickableComponent('circle', reset_maze,
                                         **settings.maze_starting_state)
     })
-
-    GAME.current_objects['MAIN_PLAYER'].add(main_player)
+    ai_hoggy = actor_obj.ActorObject(
+        **{'x': GAME.current_maze.cell_width / 2,
+           'y': GAME.current_maze.cell_height / 2,
+           'height': 32, 'width': 32,
+           'sprite_sheet_key': 0,
+           'name_object': 'hoggy',
+           'maze': MazeState('maze_state')
+           })
+    ai_hoggy.get_state('MAZE').reset_edge_visits(
+        GAME.current_maze.maze_graph.edges)
+    GAME.main_player = main_player
+    GAME.current_objects['AI_HOGGY'].add(ai_hoggy)
     GAME.current_objects['UI_BUTTONS'].add(randomize_button)
 
 
@@ -231,36 +274,30 @@ def handle_keys(event):
         return "QUIT"
     if event.type == KEYDOWN:
         if event.key == K_UP:
-            GAME.current_objects['MAIN_PLAYER'].\
-                    sprite.get_component('PLAYER_INPUT').set_key_down('up')
+            GAME.main_player.get_component('PLAYER_INPUT').set_key_down('up')
         if event.key == K_DOWN:
-            GAME.current_objects['MAIN_PLAYER'].\
-                    sprite.get_component('PLAYER_INPUT').set_key_down('down')
+            GAME.main_player.get_component('PLAYER_INPUT').set_key_down('down')
         if event.key == K_LEFT:
-            GAME.current_objects['MAIN_PLAYER'].\
-                    sprite.get_component('PLAYER_INPUT').set_key_down('left')
+            GAME.main_player.get_component('PLAYER_INPUT').set_key_down('left')
         if event.key == K_RIGHT:
-            GAME.current_objects['MAIN_PLAYER'].\
-                    sprite.get_component('PLAYER_INPUT').set_key_down('right')
+            GAME.main_player.get_component('PLAYER_INPUT').set_key_down(
+                'right')
         if event.key == K_SPACE:
-            GAME.current_objects['MAIN_PLAYER'].\
-                    sprite.get_component('PLAYER_INPUT').set_key_down('eat')
+            GAME.main_player.get_component('PLAYER_INPUT').set_key_down('eat')
     if event.type == KEYUP:
         if event.key == K_UP:
-            GAME.current_objects['MAIN_PLAYER'].\
-                    sprite.get_component('PLAYER_INPUT').set_key_up('up')
+            GAME.main_player.get_component('PLAYER_INPUT').set_key_up('up')
         if event.key == K_DOWN:
-            GAME.current_objects['MAIN_PLAYER'].\
-                    sprite.get_component('PLAYER_INPUT').set_key_up('down')
+            GAME.main_player.get_component('PLAYER_INPUT').set_key_up('down')
         if event.key == K_LEFT:
-            GAME.current_objects['MAIN_PLAYER'].\
-                    sprite.get_component('PLAYER_INPUT').set_key_up('left')
+            GAME.main_player.get_component('PLAYER_INPUT').set_key_up('left')
         if event.key == K_RIGHT:
-            GAME.current_objects['MAIN_PLAYER'].\
-                    sprite.get_component('PLAYER_INPUT').set_key_up('right')
+            GAME.main_player.get_component('PLAYER_INPUT').set_key_up('right')
         if event.key == K_SPACE:
-            GAME.current_objects['MAIN_PLAYER'].\
-                    sprite.get_component('PLAYER_INPUT').set_key_up('eat')
+            GAME.main_player.get_component('PLAYER_INPUT').set_key_up('eat')
+            GAME.main_player.get_component('PLAYER_INPUT').just_ate = False
+        if event.key == K_d:
+            settings.IS_DEBUG = not settings.IS_DEBUG
     if event.type == MOUSEMOTION:
         mousex, mousey = event.pos
         DEBUGM.update(mousex, mousey)
@@ -270,6 +307,28 @@ def handle_keys(event):
         return "MOUSEBUTTONUP"
     if event.type in [KEYDOWN, KEYUP]:
         return "player-movement"
+    if event.type == AI_HOGGY_MOVE:
+        GAME.current_maze.step_for_sprite(
+            GAME.current_objects['AI_HOGGY'].sprite)
+        # move the ai hoggy one space
+        # move = GAME.current_maze.maze_graph.path[0]
+        # print(move)
+        # GAME.current_maze.maze_graph.path =
+        # GAME.current_maze.maze_graph.path[1:]
+        # x, y = GAME.current_maze.topleft_sprite_center_in_vertex(
+        # move, GAME.current_objects['AI_HOGGY'].sprite)
+        # # currentx = GAME.current_objects['AI_HOGGY'].sprite.x
+        # # currenty = GAME.current_objects['AI_HOGGY'].sprite.y
+        # # GAME.current_objects['AI_HOGGY'].sprite
+        # # .get_component('MOVABLE').velocity['x'] = currentx - x
+        # # GAME.current_objects['AI_HOGGY'].sprite.
+        # # get_component('MOVABLE').velocity['y'] = currenty + y
+        # GAME.current_objects['AI_HOGGY'].sprite.x = x
+        # GAME.current_objects['AI_HOGGY'].sprite.y = y
+    if event.type == RELOADED_EVENT:
+        # when the reload timer runs out, reset it
+        # print("reloading")
+        pygame.time.set_timer(RELOADED_EVENT, 0)
     return "no-action"
 
 
@@ -286,7 +345,7 @@ def game_loop():
             if event == "no-action":
                 event_type = event
             else:
-                print(pygame.event.event_name(event.type))
+                # print(pygame.event.event_name(event.type))
                 event_type = handle_keys(event)
             if event_type == "QUIT":
                 game_quit = True
@@ -296,11 +355,7 @@ def game_loop():
         draw_game()
 
         if settings.IS_DEBUG:
-            DEBUGSCREEN.update(
-                GAME.current_objects['MAIN_PLAYER'].sprite, dt)
-            WORLD.blit(DEBUGSCREEN.text, (0, 465))
-            WORLD.blit(DEBUGM.text, (0, 400))
-            WORLD.blit(DEBUGEVENT.text, (0, 440))
+            draw_debug(dt)
 
         pygame.display.update()
         FPS_CLOCK.tick(settings.FPS)

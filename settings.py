@@ -20,8 +20,8 @@ sprite_sheet_dict = {0: {'image_filename':
                      }
 
 maze_starting_state = {
-    'maze_width': 10,
-    'maze_height': 10,
+    'maze_width': 6,
+    'maze_height': 6,
     'area_width': WINDOW_WIDTH,
     'area_height': WINDOW_HEIGHT,
     'wall_scale': 8

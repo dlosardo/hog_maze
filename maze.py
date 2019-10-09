@@ -44,6 +44,10 @@ class Vertex(object):
         return self.is_top_vertex or self.is_bottom_vertex
 
     @property
+    def is_perimeter_vertex(self):
+        return self.is_side_vertex or self.is_top_bottom_vertex
+
+    @property
     def is_corner_vertex(self):
         return (self.is_top_vertex and self.is_right_vertex) or\
                 (self.is_top_vertex and self.is_left_vertex) or\
@@ -52,20 +56,24 @@ class Vertex(object):
 
 
 class MazeGraph(object):
-    EMPTY = 0
-    HWALL = 1
-    VWALL = 2
+    EMPTY = " "
+    HWALL = "-"
+    VWALL = "|"
 
     def __init__(self, maze_width=4, maze_height=3):
         self.maze_width = maze_width
         self.maze_height = maze_height
         self.reset()
+        self.path = []
+        self.npaths = 0
 
     def reset(self):
         self.graph = {}
         self.edges = {}
+        self.edges_visits = {}
         self.start_vertex = None
         self.end_vertex = None
+        self.exit_direction = None
         self.stack = StackArray(200)
         self.maze_layout = [[None] * self.maze_width
                             for i in range(0, self.maze_height)
@@ -94,6 +102,14 @@ class MazeGraph(object):
                 if self.maze_layout[row][col] == vertex:
                     return (row, col)
 
+    def reset_vertex_visits(self):
+        for v in self.graph.keys():
+            v.is_visited = False
+
+    def reset_edge_visits(self):
+        for e in self.edges_visits.keys():
+            self.edges_visits[e] = False
+
     def set_graph(self):
         self.set_maze_layout()
         for row in range(0, self.maze_height):
@@ -103,6 +119,7 @@ class MazeGraph(object):
                     v2 = self.maze_layout[row][col + 1]
                     edge = frozenset([v1, v2])
                     self.edges.update({edge: MazeGraph.VWALL})
+                    self.edges_visits.update({edge: False})
                     if v1 not in self.graph:
                         self.graph.update({v1: [v2]})
                     else:
@@ -115,6 +132,7 @@ class MazeGraph(object):
                     v2 = self.maze_layout[row - 1][col]
                     edge = frozenset([v1, v2])
                     self.edges.update({edge: MazeGraph.HWALL})
+                    self.edges_visits.update({edge: False})
                     if v1 not in self.graph:
                         self.graph.update({v1: [v2]})
                     else:
@@ -153,6 +171,15 @@ class MazeGraph(object):
         ]
         return unvisited_neighbors
 
+    def get_neighbors_unexplored_edges(self, vertex):
+        neighbors = self.graph[vertex]
+        neighbors_unexplored_edges = [
+            v
+            for v in neighbors
+            if not self.edges_visits[frozenset([v, vertex])]
+        ]
+        return neighbors_unexplored_edges
+
     def any_right_unvisited_vertices(self):
         for i in range(0, self.maze_height):
             if not self.maze_layout[i][self.maze_width - 1].is_visited:
@@ -160,12 +187,14 @@ class MazeGraph(object):
         return False
 
     def is_cubby_vertex(self, vertex):
-        neighbors_with_edge = 0
+        neighbors_with_wall = 0
         for neighbor in self.graph[vertex]:
             if self.edges[frozenset([vertex, neighbor])] != MazeGraph.EMPTY\
-               and not neighbor.is_corner_vertex:
-                neighbors_with_edge += 1
-        return neighbors_with_edge == 3
+               and not vertex.is_corner_vertex:
+                neighbors_with_wall += 1
+        if vertex.is_perimeter_vertex and not vertex.is_gateway:
+            neighbors_with_wall += 1
+        return neighbors_with_wall == 3
 
     def all_cubby_vertices(self):
         cubby_vertices = []
@@ -195,12 +224,82 @@ class MazeGraph(object):
                     if self.end_vertex is None:
                         self.end_vertex = current_vertex
                         current_vertex.is_exit_vertex = True
+                        if current_vertex.is_right_vertex:
+                            if current_vertex.is_top_vertex:
+                                rc = random.choice(range(0, 2))
+                                self.exit_direction = ['RIGHT', 'TOP'][rc]
+                            if current_vertex.is_bottom_vertex:
+                                rc = random.choice(range(0, 2))
+                                self.exit_direction = ['RIGHT', 'BOTTOM'][rc]
+                        else:
+                            self.exit_direction = 'RIGHT'
+                        if current_vertex.is_left_vertex:
+                            if current_vertex.is_top_vertex:
+                                rc = random.choice(range(0, 2))
+                                self.exit_direction = ['LEFT', 'TOP'][rc]
+                            if current_vertex.is_bottom_vertex:
+                                rc = random.choice(range(0, 2))
+                                self.exit_direction = ['LEFT', 'BOTTOM'][rc]
+                        else:
+                            self.exit_direction = 'LEFT'
+                        if not self.exit_direction:
+                            if current_vertex.is_bottom_vertex:
+                                self.exit_direction = 'BOTTOM'
+                            elif current_vertex.is_top_vertex:
+                                self.exit_direction = 'TOP'
                 if not self.any_unvisited_vertices():
                     if self.end_vertex is None:
                         self.end_vertex = current_vertex
                         current_vertex.is_exit_vertex = True
             if not self.stack.is_empty():
                 current_vertex = self.stack.pop()
+
+    def traverse_graph(self, start_vertex_name):
+        current_vertex = self.get_vertex_by_name(start_vertex_name)
+        self.reset_edge_visits()
+        self.traverse(current_vertex)
+        self.npaths += 1
+
+    def traverse(self, vertex):
+        if vertex.is_exit_vertex:
+            print("Found exit vertex {}".format(vertex))
+            self.path.append(vertex)
+            return vertex
+        else:
+            neighbors_unexplored_edges = self.get_neighbors_unexplored_edges(
+                vertex)
+            if len(neighbors_unexplored_edges) == 0:
+                all_neighbors = self.graph[vertex]
+                neighbor_no_wall = False
+                while not neighbor_no_wall:
+                    rc = random.choice(range(0, len(all_neighbors)))
+                    next_vertex = all_neighbors[rc]
+                    edge = frozenset([vertex, next_vertex])
+                    if self.edges[edge] == MazeGraph.EMPTY:
+                        neighbor_no_wall = True
+                    else:
+                        all_neighbors.remove(next_vertex)
+                        print("Hit dead end at {}, then hill wall at {}"
+                              .format(vertex, next_vertex))
+                print("Hit dead end at {}, traveling back to {}".format(
+                    vertex, next_vertex))
+                self.path.append(next_vertex)
+                self.traverse(next_vertex)
+            else:
+                rc = random.choice(range(0, len(neighbors_unexplored_edges)))
+                next_vertex = neighbors_unexplored_edges[rc]
+                edge = frozenset([vertex, next_vertex])
+                self.edges_visits[edge] = True
+                if self.edges[edge] == MazeGraph.EMPTY:
+                    print("Traveling from {} to {}".format(
+                        vertex, next_vertex))
+                    self.path.append(next_vertex)
+                    self.traverse(next_vertex)
+                else:
+                    print("Hit wall from {} to {}".format(
+                        vertex, next_vertex))
+                    self.path.append(vertex)
+                    self.traverse(vertex)
 
     def print_maze_layout(self):
         maze_layout_display = ""
@@ -209,7 +308,7 @@ class MazeGraph(object):
                 maze_layout_display += "{}".format(self.maze_layout[row][col])
                 maze_layout_display += " "
             maze_layout_display += "\n"
-        #  print(maze_layout_display)
+        print(maze_layout_display)
 
     def print_maze_path(self):
         maze_path = ""
@@ -257,16 +356,31 @@ class MazeGraph(object):
                     data = self.edges[edge]
                     if col == 0:
                         if self.maze_layout[row][col].is_exit_vertex:
-                            maze_path_above += " {}   ".format(data)
+                            if data == MazeGraph.HWALL:
+                                maze_path_above += "-  -"
+                            elif data == MazeGraph.EMPTY:
+                                maze_path_above += "    "
                         else:
-                            maze_path_above += "|{}   ".format(data)
+                            if data == MazeGraph.HWALL:
+                                maze_path_above += "|---"
+                            elif data == MazeGraph.EMPTY:
+                                maze_path_above += "|   "
                     elif col == (self.maze_width - 1):
                         if self.maze_layout[row][col].is_exit_vertex:
-                            maze_path_above += "{} ".format(data)
+                            if data == MazeGraph.HWALL:
+                                maze_path_above += "--  "
+                            elif data == MazeGraph.EMPTY:
+                                maze_path_above += "    "
                         else:
-                            maze_path_above += "{} |".format(data)
+                            if data == MazeGraph.HWALL:
+                                maze_path_above += "---|"
+                            elif data == MazeGraph.EMPTY:
+                                maze_path_above += "   |"
                     else:
-                        maze_path_above += "{}   ".format(data)
+                        if data == MazeGraph.HWALL:
+                            maze_path_above += "----"
+                        elif data == MazeGraph.EMPTY:
+                            maze_path_above += "    "
                     if row == (self.maze_height - 1):
                         if self.maze_layout[row][col].is_exit_vertex and (
                               self.maze_layout[row][col].is_left_vertex or
@@ -285,7 +399,7 @@ class MazeGraph(object):
             maze_path += "\n"
         maze_path += bottom_layer
         top_layer += maze_path
-        #  print(top_layer)
+        print(top_layer)
 
     def get_cell_walls(self, row, col):
         vertex = self.maze_layout[row][col]

@@ -1,4 +1,5 @@
 import math
+import random
 import pygame
 import settings
 from maze import MazeGraph
@@ -72,11 +73,111 @@ class MazeGame(object):
         vertical_wall.rect.topleft = topleft
         return vertical_wall
 
-    def get_x_y_for_vertex(self, vertex):
+    def topleft_for_vertex(self, vertex):
         row, col = self.maze_graph.get_row_col_for_vertex(vertex)
-        left = col * self.cell_width + self.rect.topleft[1]  # + self.cell_height/2
-        top = row * self.cell_height + self.rect.topleft[0]  # + self.cell_width/4
+        left = col * self.cell_width
+        top = row * self.cell_height
         return (left, top)
+
+    def center_for_vertex(self, vertex):
+        row, col = self.maze_graph.get_row_col_for_vertex(vertex)
+        centerx = col * self.cell_width + self.cell_width/2
+        centery = row * self.cell_height + self.cell_height/2
+        return (centerx, centery)
+
+    def topleft_sprite_center_in_vertex(self, vertex, sprite):
+        centerx, centery = self.center_for_vertex(vertex)
+        return (centerx - sprite.width/2,
+                centery - sprite.height/2)
+
+    def vertex_from_x_y(self, x, y):
+        for row in range(0, self.maze_height):
+            for col in range(0, self.maze_width):
+                left = col * self.cell_width +\
+                        self.rect.topleft[1]
+                top = row * self.cell_height + self.rect.topleft[0]
+                rect = pygame.Rect((left, top),
+                                   (self.cell_width, self.cell_height))
+                if rect.collidepoint(x, y):
+                    return self.maze_graph.maze_layout[row][col]
+
+    def all_neighbors_for_sprite(self, sprite):
+        vertex = self.vertex_from_x_y(sprite.x, sprite.y)
+        all_neighbors = self.maze_graph.graph[vertex]
+        return all_neighbors
+
+    def all_neighbors_for_vertex(self, vertex):
+        all_neighbors = self.maze_graph.graph[vertex]
+        return all_neighbors
+
+    def neighbors_unexplored_edges_for_sprite(self, sprite):
+        vertex = self.vertex_from_x_y(sprite.x, sprite.y)
+        all_neighbors = self.maze_graph.graph[vertex]
+        neighbors_unexplored_edges = [
+            v
+            for v in all_neighbors
+            if not sprite.get_state('MAZE').edge_visits[
+                frozenset([v, vertex])]
+        ]
+        return neighbors_unexplored_edges
+
+    def neighbors_unexplored_edges_from_vertex(self, vertex,
+                                               edge_visits):
+        all_neighbors = self.all_neighbors_for_vertex(vertex)
+        neighbors_unexplored_edges = [
+            v
+            for v in all_neighbors
+            if not edge_visits[frozenset([v, vertex])]
+        ]
+        return neighbors_unexplored_edges
+
+    def step_for_sprite(self, sprite):
+        vertex = self.vertex_from_x_y(sprite.x, sprite.y)
+        path = sprite.get_state('MAZE').path
+        edge_visits = sprite.get_state('MAZE').edge_visits
+        neighbors_unexplored_edges =\
+            self.neighbors_unexplored_edges_from_vertex(vertex,
+                                                        edge_visits)
+        if vertex.is_exit_vertex:
+            neighbors_unexplored_edges.append('EXIT')
+        if len(neighbors_unexplored_edges) == 0:
+            all_neighbors = self.all_neighbors_for_vertex(vertex)
+            neighbor_no_wall = False
+            while not neighbor_no_wall:
+                rc = random.choice(range(0, len(all_neighbors)))
+                next_vertex = all_neighbors[rc]
+                edge = frozenset([vertex, next_vertex])
+                if self.maze_graph.edges[edge] == MazeGraph.EMPTY:
+                    neighbor_no_wall = True
+                else:
+                    all_neighbors.remove(next_vertex)
+                    print("Hit dead end at {}, then hill wall at {}"
+                          .format(vertex, next_vertex))
+            print("Hit dead end at {}, traveling back to {}".format(
+                vertex, next_vertex))
+            x, y = self.topleft_sprite_center_in_vertex(
+                next_vertex, sprite)
+            sprite.set_pos(x, y)
+            path.append(next_vertex)
+        else:
+            rc = random.choice(range(0, len(neighbors_unexplored_edges)))
+            next_vertex = neighbors_unexplored_edges[rc]
+            if next_vertex == 'EXIT':
+                print("HOGGY FOUND EXIT!")
+            else:
+                edge = frozenset([vertex, next_vertex])
+                edge_visits[edge] = True
+                if self.maze_graph.edges[edge] == MazeGraph.EMPTY:
+                    print("Traveling from {} to {}".format(
+                        vertex, next_vertex))
+                    x, y = self.topleft_sprite_center_in_vertex(
+                        next_vertex, sprite)
+                    sprite.set_pos(x, y)
+                    path.append(next_vertex)
+                else:
+                    print("Hit wall from {} to {}".format(
+                        vertex, next_vertex))
+                    path.append(vertex)
 
     def set_maze_walls(self):
         for box_x in range(0, self.maze_height):
