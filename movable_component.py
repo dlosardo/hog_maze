@@ -13,10 +13,7 @@ class MovableComponent(HogMazeComponent):
         self.owner.y += self.velocity['y']
 
     def is_moving(self):
-        if self.velocity['x'] != 0 or self.velocity['y'] != 0:
-            return True
-        else:
-            return False
+        return self.velocity['x'] != 0 or self.velocity['y'] != 0
 
     def reset_velocity(self):
         self.velocity['x'] = 0

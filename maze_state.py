@@ -9,6 +9,7 @@ class MazeState(HogMazeState):
         self.edge_visits = {}
         self.name_instance = name_instance
         self.owner = None
+        self.current_state = None
 
     def reset_edge_visits(self, edges):
         for edge in edges:

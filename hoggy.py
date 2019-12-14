@@ -61,13 +61,6 @@ def draw_game():
             else:
                 GAME.hud.blit(sprite.image,
                               (sprite.x, sprite.y))
-                tomato = actor_obj.ActorObject(
-                    **{'x': 10, 'y': 10, 'height': 32, 'width': 32,
-                       'sprite_sheet_key': 3,
-                       'name_object': 'hud_tomato'
-                       })
-                GAME.hud.blit(tomato.image,
-                              (tomato.x, tomato.y))
                 ntomatoes = GAME.main_player.get_state(
                       'INVENTORY').inventory.get('tomato')
                 if not ntomatoes:
@@ -107,12 +100,16 @@ class Game():
         self.current_objects.update(
             {'AI_HOGGY': actor_obj.ActorObjectGroupSingle(
                 'AI_HOGGY')})
+        self.current_objects.update(
+            {'HUD': actor_obj.ActorObjectGroup(
+                'HUD')})
         self.current_maze = None
         self.reset_maze(**settings.maze_starting_state)
         self.hud = pygame.Surface([settings.WINDOW_WIDTH,
                                    settings.HUD_OFFSETY]
                                   ).convert()
         self.hud_rect = self.hud.get_rect()
+        self.set_hud()
 
     @property
     def main_player(self):
@@ -140,6 +137,9 @@ class Game():
         self.current_objects['MAZE_WALLS'].add(
             self.current_maze.maze_walls)
         self.place_tomatoes()
+        if self.current_objects['AI_HOGGY']:
+            self.current_objects['AI_HOGGY'].sprite.get_state(
+                'MAZE').reset_edge_visits(self.current_maze.maze_graph.edges)
         # self.current_maze.maze_graph.traverse_graph(starting_vertex_name)
 
     def place_tomatoes(self):
@@ -158,6 +158,15 @@ class Game():
                 tomato.x = x
                 tomato.y = y
                 self.current_objects['PICKUPS'].add(tomato)
+
+    def set_hud(self):
+        tomato = actor_obj.ActorObject(
+            **{'x': 10, 'y': 10, 'height': 32, 'width': 32,
+               'sprite_sheet_key': 3,
+               'in_hud': True,
+               'name_object': 'hud_tomato'
+               })
+        self.current_objects['HUD'].add(tomato)
 
 
 def reset_maze(**kwargs):
@@ -310,21 +319,6 @@ def handle_keys(event):
     if event.type == AI_HOGGY_MOVE:
         GAME.current_maze.step_for_sprite(
             GAME.current_objects['AI_HOGGY'].sprite)
-        # move the ai hoggy one space
-        # move = GAME.current_maze.maze_graph.path[0]
-        # print(move)
-        # GAME.current_maze.maze_graph.path =
-        # GAME.current_maze.maze_graph.path[1:]
-        # x, y = GAME.current_maze.topleft_sprite_center_in_vertex(
-        # move, GAME.current_objects['AI_HOGGY'].sprite)
-        # # currentx = GAME.current_objects['AI_HOGGY'].sprite.x
-        # # currenty = GAME.current_objects['AI_HOGGY'].sprite.y
-        # # GAME.current_objects['AI_HOGGY'].sprite
-        # # .get_component('MOVABLE').velocity['x'] = currentx - x
-        # # GAME.current_objects['AI_HOGGY'].sprite.
-        # # get_component('MOVABLE').velocity['y'] = currenty + y
-        # GAME.current_objects['AI_HOGGY'].sprite.x = x
-        # GAME.current_objects['AI_HOGGY'].sprite.y = y
     if event.type == RELOADED_EVENT:
         # when the reload timer runs out, reset it
         # print("reloading")
