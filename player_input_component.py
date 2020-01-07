@@ -48,8 +48,8 @@ class PlayerInputComponent(HogMazeComponent):
                         = self.owner.component_dict['MOVABLE'].speed
         elif self.key_dict['eat']:
             if not self.just_ate:
-                print("EAT TOMATO")
                 if self.owner.get_state('INVENTORY').inventory['tomato'] > 0:
+                    print("EAT TOMATO")
                     self.owner.get_state('INVENTORY').inventory['tomato'] -= 1
                     self.just_ate = True
 

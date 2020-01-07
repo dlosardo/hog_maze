@@ -3,11 +3,17 @@ from state import HogMazeState
 
 class InventoryState(HogMazeState):
 
-    def __init__(self, name_instance):
+    def __init__(self, name_instance, default_start_amt=0):
         super(InventoryState, self).__init__('INVENTORY')
-        self.inventory = {}
+        self.default_start_amt = default_start_amt
         self.name_instance = name_instance
         self.owner = None
+        self.reset_inventory_state()
+
+    def reset_inventory_state(self):
+        self.inventory = {self.name_instance:
+                          self.default_start_amt
+                          }
 
     def add_item(self, item):
         if item not in self.inventory.keys():

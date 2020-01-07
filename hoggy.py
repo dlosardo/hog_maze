@@ -1,8 +1,10 @@
 import pygame
+import random
+import numpy as np
 from pygame.locals import (
     QUIT, KEYDOWN, KEYUP, K_UP, K_DOWN,
     K_LEFT, K_RIGHT, MOUSEMOTION,
-    MOUSEBUTTONUP, K_SPACE, K_d
+    MOUSEBUTTONUP, K_SPACE, K_d, K_p
 )
 import settings
 import actor_obj
@@ -19,6 +21,10 @@ from maze_game import MazeGame
 import debuginfo
 import debugmouse
 import debugevent
+import debugmazestate
+
+from IPython.display import clear_output
+from time import sleep
 
 MOVE_AI_HOGGY_TIMEOUT = 1000
 AI_HOGGY_MOVE = pygame.USEREVENT + 1
@@ -27,22 +33,21 @@ RELOADED_EVENT = pygame.USEREVENT + 2
 COMPONENTS = ['PLAYER_INPUT', 'MOVABLE', 'ORIENTATION',
               'ANIMATION', 'CLICKABLE', 'PICKUPABLE']
 
-settings.IS_DEBUG = False
+settings.IS_DEBUG = True
 
 
 def update_components(dt, mousex, mousey, event_type):
     for component in COMPONENTS:
         for name, obj in GAME.current_objects.items():
             for sprite in obj:
-                if sprite.is_dead:
-                    sprite.kill()
-                elif sprite.has_component(component):
-                    sprite.get_component(component).update(
-                        **{'dt': dt,
-                           'mousex': mousex,
-                           'mousey': mousey,
-                           'event_type': event_type
-                           })
+                if not sprite.is_dead:
+                    if sprite.has_component(component):
+                        sprite.get_component(component).update(
+                            **{'dt': dt,
+                               'mousex': mousex,
+                               'mousey': mousey,
+                               'event_type': event_type
+                               })
                 if sprite.is_dead:
                     sprite.kill()
 
@@ -63,8 +68,6 @@ def draw_game():
                               (sprite.x, sprite.y))
                 ntomatoes = GAME.main_player.get_state(
                       'INVENTORY').inventory.get('tomato')
-                if not ntomatoes:
-                    ntomatoes = 0
                 draw_text(GAME.hud, "x",
                           24, 55, 28, settings.ORANGE)
                 draw_text(GAME.hud, "{}".format(ntomatoes),
@@ -76,10 +79,13 @@ def draw_game():
 
 
 def draw_debug(dt):
-    DEBUGSCREEN.update(GAME.main_player, dt)
-    WORLD.blit(DEBUGSCREEN.text, (0, 465))
-    WORLD.blit(DEBUGM.text, (0, 400))
-    WORLD.blit(DEBUGEVENT.text, (0, 440))
+    DEBUGSCREEN.update(GAME.ai_hoggy, dt)
+    # for i, t in enumerate(DEBUGSCREEN.text_list):
+    # WORLD.blit(t, (0, 465 + (i * 30)))
+    # WORLD.blit(DEBUGM.text, (0, 400))
+    # WORLD.blit(DEBUGEVENT.text, (0, 440))
+    for i, t in enumerate(DEBUGMAZESTATE.text_list):
+        WORLD.blit(t, (0, 500 + (i * 30)))
 
 
 class Game():
@@ -110,6 +116,22 @@ class Game():
                                   ).convert()
         self.hud_rect = self.hud.get_rect()
         self.set_hud()
+        self.is_paused = False
+        self.nstates = (self.current_maze.maze_width *
+                        self.current_maze.maze_height)
+        self.action_space = 4
+        self.actions = [MazeGame.NORTH,
+                        MazeGame.SOUTH,
+                        MazeGame.EAST,
+                        MazeGame.WEST]
+        self.rewards_table = self.current_maze.maze_graph.set_rewards_table(
+            self.actions)
+        self.alpha = 0.3
+        self.gamma = 0.9
+        self.epsilon = 0.1
+        self.q_n = np.zeros([
+            self.nstates, self.action_space
+        ])
 
     @property
     def main_player(self):
@@ -119,6 +141,97 @@ class Game():
     def main_player(self, main_player_sprite):
         self.current_objects['MAIN_PLAYER'].add(
             main_player_sprite)
+
+    @property
+    def ai_hoggy(self):
+        return self.current_objects['AI_HOGGY'].sprite
+
+    @ai_hoggy.setter
+    def ai_hoggy(self, ai_hoggy_sprite):
+        self.current_objects['AI_HOGGY'].add(
+            ai_hoggy_sprite)
+
+    def update_qn_for_state_action(self, state, action):
+        self.q_n[state][action] = self.q_n[state][action] + self.alpha * (
+            self.reward_for_state_action(
+                state, action) - self.q_n[state][action])
+
+    def update_qn_for_state_action_1(self, state, action):
+        self.q_n[state][action] = (1 - self.alpha)*self.q_n[
+            state][action] + self.alpha*(self.reward_for_state_action(
+                state, action) + self.gamma*np.max(
+                    self.q_n[self.next_state_for_state_action(
+                        state, action)]))
+
+    def update_qn_for_state_action_2(self, state, action):
+        self.cum_reward = 0
+        self.q_n[state][action] = (1 - self.alpha)*self.q_n[
+            state][action] + self.alpha*(self.reward_for_state_action(
+                state, action) + self.gamma*self.expected_reward(
+                    state, action, False))
+
+    def expected_reward(self, state, action, end):
+        if end:
+            return self.reward_for_state_action(
+                state, action)
+        elif self.cum_reward < -100:
+            return self.reward_for_state_action(
+                state, action)
+        else:
+            (p, next_state,
+             reward, end) = self.rewards_table[state][action][0]
+            self.cum_reward += reward
+            return reward + self.gamma * self.expected_reward(
+                next_state, self.epsilon_greedy(next_state), end)
+
+    def max_action(self, state):
+        max_est = np.max(self.q_n[state])
+        if np.sum([m == max_est for m in self.q_n[state]]) > 1:
+            action = np.random.choice(
+                np.where(max_est == self.q_n[state])[0])
+        else:
+            action = np.argmax(self.q_n[state])
+        return action
+
+    def epsilon_greedy(self, state):
+        if random.uniform(0, 1) < self.epsilon:
+            # Explore action space
+            action = self.current_maze.random_action(self.actions)
+        else:
+            # Exploit learned values
+            action = self.max_action(state)
+        return action
+
+    def reward_for_state_action(self, state, action):
+        return self.rewards_table[state][action][0][2]
+
+    def next_state_for_state_action(self, state, action):
+        return self.rewards_table[state][action][0][1]
+
+    def train_ai_hoggy(self):
+        state = 0
+        self.current_maze.set_state(state, self.ai_hoggy)
+        self.ai_hoggy.get_state('MAZE').end = False
+        while not self.ai_hoggy.get_state('MAZE').end:
+            clear_output(wait=True)
+            # get current state?
+            if random.uniform(0, 1) < self.epsilon:
+                # Explore action space
+                action = self.current_maze.random_action(self.actions)
+            else:
+                # Exploit learned values
+                action = self.max_action(state)
+            # need to update q_n somewhere here
+            (p, next_state,
+             reward, end) = self.rewards_table[state][action][0]
+            self.update_qn_for_state_action_2(state, action)
+            self.ai_hoggy.get_state('MAZE').rewards += reward
+            self.ai_hoggy.get_state('MAZE').end = end
+            self.current_maze.set_state(next_state,
+                                        self.ai_hoggy)
+            state = next_state
+            self.print_maze_path()
+            sleep(.1)
 
     def reset_maze(self, maze_width, maze_height,
                    area_width, area_height,
@@ -138,8 +251,18 @@ class Game():
             self.current_maze.maze_walls)
         self.place_tomatoes()
         if self.current_objects['AI_HOGGY']:
-            self.current_objects['AI_HOGGY'].sprite.get_state(
-                'MAZE').reset_edge_visits(self.current_maze.maze_graph.edges)
+            self.ai_hoggy.get_state(
+                'MAZE').reset_maze_state(
+                    self.current_maze.maze_graph.edges)
+            self.ai_hoggy.set_pos(
+                self.ai_hoggy.start_x,
+                self.ai_hoggy.start_y)
+            self.ai_hoggy.get_state(
+                'MAZE').current_vertex = self.current_maze.vertex_from_x_y(
+                    self.ai_hoggy.x,
+                    self.ai_hoggy.y)
+            self.ai_hoggy.get_state(
+                'INVENTORY').reset_inventory_state()
         # self.current_maze.maze_graph.traverse_graph(starting_vertex_name)
 
     def place_tomatoes(self):
@@ -155,8 +278,9 @@ class Game():
                        })
                 x, y = self.current_maze.topleft_sprite_center_in_vertex(
                     cubby_vertex, tomato)
-                tomato.x = x
-                tomato.y = y
+                tomato.set_pos(x, y)
+                # print("ADDING TOMATO TO VERTEX {}".format(cubby_vertex))
+                cubby_vertex.has_tomato = True
                 self.current_objects['PICKUPS'].add(tomato)
 
     def set_hud(self):
@@ -167,6 +291,104 @@ class Game():
                'name_object': 'hud_tomato'
                })
         self.current_objects['HUD'].add(tomato)
+
+    def print_maze_path(self):
+        maze_path = ""
+        top_layer = ""
+        bottom_layer = ""
+        (ai_hoggy_row, ai_hoggy_col) = self.ai_hoggy.get_state('MAZE').coord
+        for row in range(0, self.current_maze.maze_height):
+            maze_path_below = ""
+            maze_path_above = ""
+            for col in range(0, self.current_maze.maze_width):
+                current_vertex = self.current_maze.maze_graph.maze_layout[
+                    row][col]
+                data = " "
+                if current_vertex.has_tomato:
+                    data = "T"
+                if current_vertex.sprite_visits[self.ai_hoggy.name_object]:
+                    data = "#"
+                if ai_hoggy_row == row and ai_hoggy_col == col:
+                    data = "H"
+                if not current_vertex.is_right_vertex:
+                    wall = self.current_maze.maze_graph.\
+                            east_structure_from_vertex(current_vertex)
+                    if (current_vertex.is_left_vertex) and (
+                         not current_vertex.is_top_vertex):
+                        if current_vertex.is_exit_vertex:
+                            maze_path_below += "  {} {} ".format(data, wall)
+                        else:
+                            maze_path_below += "| {} {} ".format(data, wall)
+                    elif (current_vertex.is_top_vertex and
+                          current_vertex.is_left_vertex):
+                        maze_path_below += "  {} {} ".format(data, wall)
+                    else:
+                        maze_path_below += "{} {} ".format(data, wall)
+                    if current_vertex.is_top_vertex:
+                        if current_vertex.is_exit_vertex:
+                            top_layer += "  --"
+                        else:
+                            top_layer += "----"
+                if current_vertex.is_right_vertex:
+                    if current_vertex.is_exit_vertex:
+                        maze_path_below += "{}".format(data)
+                    else:
+                        maze_path_below += "{}|".format(data)
+                    if row == 0:
+                        if current_vertex.is_exit_vertex:
+                            top_layer += "    "
+                        else:
+                            top_layer += "----"
+                if not current_vertex.is_top_vertex:
+                    wall = self.current_maze.maze_graph.\
+                            north_structure_from_vertex(current_vertex)
+                    if current_vertex.is_left_vertex:
+                        if current_vertex.is_exit_vertex:
+                            if wall == self.current_maze.maze_graph.HWALL:
+                                maze_path_above += "-  -"
+                            elif wall == self.current_maze.maze_graph.EMPTY:
+                                maze_path_above += "    "
+                        else:
+                            if wall == self.current_maze.maze_graph.HWALL:
+                                maze_path_above += "|---"
+                            elif wall == self.current_maze.maze_graph.EMPTY:
+                                maze_path_above += "|   "
+                    elif current_vertex.is_right_vertex:
+                        if current_vertex.is_exit_vertex:
+                            if wall == self.current_maze.maze_graph.HWALL:
+                                maze_path_above += "--  "
+                            elif wall == self.current_maze.maze_graph.EMPTY:
+                                maze_path_above += "    "
+                        else:
+                            if wall == self.current_maze.maze_graph.HWALL:
+                                maze_path_above += "---|"
+                            elif wall == self.current_maze.maze_graph.EMPTY:
+                                maze_path_above += "   |"
+                    else:
+                        if wall == self.current_maze.maze_graph.HWALL:
+                            maze_path_above += "----"
+                        elif wall == self.current_maze.maze_graph.EMPTY:
+                            maze_path_above += "    "
+                    if current_vertex.is_bottom_vertex:
+                        if current_vertex.is_exit_vertex and (
+                            current_vertex.is_left_vertex or
+                            current_vertex.is_right_vertex
+                        ):
+                            bottom_layer += "    "
+                        elif (current_vertex.is_left_vertex or
+                              current_vertex.is_right_vertex):
+                            bottom_layer += "----"
+                        elif current_vertex.is_exit_vertex:
+                            bottom_layer += "-  -"
+                        else:
+                            bottom_layer += "----"
+            maze_path_above += "\n"
+            maze_path_above += maze_path_below
+            maze_path += maze_path_above
+            maze_path += "\n"
+        maze_path += bottom_layer
+        top_layer += maze_path
+        print(top_layer)
 
 
 def reset_maze(**kwargs):
@@ -201,9 +423,15 @@ def hoggy_collision_tomatoes(sprite, colliding_pickups):
     for pickup in colliding_pickups:
         if pickup.get_component('PICKUPABLE').name_instance == "tomato":
             pickup.get_component('PICKUPABLE').picked_up = True
-            # print("GETTING TOMATO")
             sprite.get_state('INVENTORY').add_item(
                 pickup.get_component('PICKUPABLE').name_instance)
+            vertex = GAME.current_maze.vertex_from_x_y(
+                pickup.x, pickup.y)
+            # print("VERTEX WITH TOMATO: {}".format(vertex))
+            vertex.has_tomato = False
+            vertex.sprite_with_tomato = sprite
+            if sprite.name_object == 'ai_hoggy':
+                sprite.get_state('MAZE').rewards += 5
 
 
 def handle_collisions():
@@ -213,6 +441,9 @@ def handle_collisions():
     collision_one_to_many(GAME.current_objects[
         'MAIN_PLAYER'], GAME.current_objects[
             'PICKUPS'], hoggy_collision_tomatoes)
+    collision_one_to_many(GAME.current_objects[
+        'AI_HOGGY'], GAME.current_objects[
+            'PICKUPS'], hoggy_collision_tomatoes)
 
 
 def game_initialize():
@@ -221,6 +452,7 @@ def game_initialize():
     global DEBUGSCREEN
     global DEBUGEVENT
     global DEBUGM
+    global DEBUGMAZESTATE
 
     pygame.init()
 
@@ -228,6 +460,7 @@ def game_initialize():
     DEBUGEVENT = debugevent.DebugEvent()
     DEBUGM = debugmouse.DebugMouse()
     DEBUGM.update("", "")
+    DEBUGMAZESTATE = debugmazestate.DebugMazeState()
     WORLD = pygame.display.set_mode((settings.WINDOW_WIDTH +
                                      settings.HUD_OFFSETX,
                                      settings.WINDOW_HEIGHT +
@@ -239,9 +472,12 @@ def game_initialize():
 def game_new():
     global GAME
     GAME = Game()
+    starting_vertex = GAME.current_maze.maze_graph.maze_layout[
+        0][0]
+    (x, y) = GAME.current_maze.center_for_vertex(starting_vertex)
     main_player = actor_obj.ActorObject(
-        **{'x': GAME.current_maze.cell_width / 2,
-           'y': GAME.current_maze.cell_height / 2,
+        **{'x': x - (32 / 2),
+           'y': y - (32 / 2),
            'height': 32, 'width': 32,
            'sprite_sheet_key': 0,
            'name_object': 'hoggy',
@@ -263,17 +499,21 @@ def game_new():
                                         **settings.maze_starting_state)
     })
     ai_hoggy = actor_obj.ActorObject(
-        **{'x': GAME.current_maze.cell_width / 2,
-           'y': GAME.current_maze.cell_height / 2,
+        **{'x': x - (32 / 2),
+           'y': y - (32 / 2),
            'height': 32, 'width': 32,
            'sprite_sheet_key': 0,
-           'name_object': 'hoggy',
+           'name_object': 'ai_hoggy',
+           'inventory': InventoryState('tomato'),
            'maze': MazeState('maze_state')
            })
     ai_hoggy.get_state('MAZE').reset_edge_visits(
         GAME.current_maze.maze_graph.edges)
+    ai_hoggy.get_state(
+        'MAZE').current_vertex = starting_vertex
+    starting_vertex.increment_sprite_visit_count(ai_hoggy)
     GAME.main_player = main_player
-    GAME.current_objects['AI_HOGGY'].add(ai_hoggy)
+    GAME.ai_hoggy = ai_hoggy
     GAME.current_objects['UI_BUTTONS'].add(randomize_button)
 
 
@@ -307,18 +547,26 @@ def handle_keys(event):
             GAME.main_player.get_component('PLAYER_INPUT').just_ate = False
         if event.key == K_d:
             settings.IS_DEBUG = not settings.IS_DEBUG
+        if event.key == K_p:
+            GAME.is_paused = True
     if event.type == MOUSEMOTION:
         mousex, mousey = event.pos
         DEBUGM.update(mousex, mousey)
         return "MOUSEMOTION"
     if event.type == MOUSEBUTTONUP:
         mousex, mousey = event.pos
+        vertex = GAME.current_maze.vertex_from_x_y(
+            mousex - settings.HUD_OFFSETX,
+            mousey - settings.HUD_OFFSETY)
+        if vertex:
+            DEBUGMAZESTATE.update(vertex)
         return "MOUSEBUTTONUP"
     if event.type in [KEYDOWN, KEYUP]:
         return "player-movement"
     if event.type == AI_HOGGY_MOVE:
-        GAME.current_maze.step_for_sprite(
-            GAME.current_objects['AI_HOGGY'].sprite)
+        if not GAME.ai_hoggy.get_state('MAZE').end:
+            GAME.current_maze.step_for_sprite(
+                GAME.ai_hoggy)
     if event.type == RELOADED_EVENT:
         # when the reload timer runs out, reset it
         # print("reloading")
@@ -329,6 +577,21 @@ def handle_keys(event):
 def game_loop():
     game_quit = False
     while not game_quit:
+        while GAME.is_paused:
+            events = pygame.event.get()
+            for event in events:
+                if event.type == MOUSEBUTTONUP:
+                    mousex, mousey = event.pos
+                    vertex = GAME.current_maze.vertex_from_x_y(
+                        mousex - settings.HUD_OFFSETX,
+                        mousey - settings.HUD_OFFSETY)
+                    if vertex:
+                        DEBUGMAZESTATE.update(vertex)
+                        draw_game()
+                        draw_debug(0)
+                        pygame.display.update()
+                if event.type == KEYUP and event.key == K_p:
+                    GAME.is_paused = False
         dt = FPS_CLOCK.get_time()
         events = pygame.event.get()
         mousex, mousey = pygame.mouse.get_pos()
@@ -350,6 +613,7 @@ def game_loop():
 
         if settings.IS_DEBUG:
             draw_debug(dt)
+        print(GAME.current_maze.maze_graph.exit_direction)
 
         pygame.display.update()
         FPS_CLOCK.tick(settings.FPS)

@@ -88,13 +88,13 @@ class ActorObject(pygame.sprite.Sprite):
             self.component_dict['PICKUPABLE'].owner = self
 
     def has_component(self, component):
-        return self.component_dict[component]
+        return self.component_dict[component] is not None
 
     def get_component(self, component):
         return self.component_dict[component]
 
     def has_state(self, state):
-        return self.state_dict[state]
+        return self.state_dict[state] is not None
 
     def get_state(self, state):
         return self.state_dict[state]
