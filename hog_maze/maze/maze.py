@@ -1,6 +1,6 @@
 import random
 from collections import defaultdict
-from stack import StackArray
+from hog_maze.util.stack import StackArray
 
 
 class Vertex(object):

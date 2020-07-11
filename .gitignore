@@ -46,3 +46,4 @@ instance/data
 webapp/static/data
 webapp/migrations
 migrations
+.ipynb_checkpoints/

@@ -1,4 +1,4 @@
-from state import HogMazeState
+from hog_maze.states.state import HogMazeState
 
 
 class InventoryState(HogMazeState):

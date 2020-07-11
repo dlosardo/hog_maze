@@ -1,5 +1,5 @@
 import pygame
-from settings import sprite_sheet_dict
+from hog_maze.settings import sprite_sheet_dict
 
 
 class ActorObjectGroup(pygame.sprite.Group):

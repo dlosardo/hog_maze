@@ -1,3 +1,6 @@
+from pathlib import Path
+path = Path(__file__).parent / "assets"
+
 WINDOW_WIDTH = 32 * 30  # 640
 # WINDOW_HEIGHT = 32 * 23  # 480
 WINDOW_HEIGHT = 32 * 22
@@ -9,13 +12,16 @@ IS_DEBUG = True
 HOGGY_ANIMATION_DELAY = 45
 
 sprite_sheet_dict = {0: {'image_filename':
-                         "assets/hoggy_spritesheet_2.png",
+                         "{}/hoggy_spritesheet_2.png".format(path),
                          'ncols': 4,
                          'animation_delay': HOGGY_ANIMATION_DELAY},
-                     1: {'image_filename': "assets/wall.png", "ncols": 1},
-                     2: {'image_filename': "assets/refresh_64.png", "ncols": 2,
+                     1: {'image_filename': "{}/wall.png".format(path),
+                         "ncols": 1},
+                     2: {'image_filename': "{}/refresh_64.png".format(path),
+                         "ncols": 2,
                          'animation_delay': 10},
-                     3: {'image_filename': "assets/tomatoes.png", "ncols": 2,
+                     3: {'image_filename': "{}/tomatoes.png".format(path),
+                         "ncols": 2,
                          'animation_delay': 400}
                      }
 
