@@ -6,22 +6,22 @@ from pygame.locals import (
     K_LEFT, K_RIGHT, MOUSEMOTION,
     MOUSEBUTTONUP, K_SPACE, K_d, K_p
 )
-import settings
-import actor_obj
-from util.util_draw import draw_text
-from animation_component import AnimationComponent
-from player_input_component import PlayerInputComponent
-from movable_component import MovableComponent
-from clickable_component import ClickableComponent
-from orientation_component import OrientationComponent
-from pickupable_component import PickupableComponent
-from inventory_state import InventoryState
-from maze_state import MazeState
-from maze_game import MazeGame
-import debuginfo
-import debugmouse
-import debugevent
-import debugmazestate
+import hog_maze.settings as settings
+import hog_maze.actor_obj as actor_obj
+from hog_maze.util.util_draw import draw_text
+from hog_maze.components.animation_component import AnimationComponent
+from hog_maze.components.player_input_component import PlayerInputComponent
+from hog_maze.components.movable_component import MovableComponent
+from hog_maze.components.clickable_component import ClickableComponent
+from hog_maze.components.orientation_component import OrientationComponent
+from hog_maze.components.pickupable_component import PickupableComponent
+from hog_maze.states.inventory_state import InventoryState
+from hog_maze.states.maze_state import MazeState
+from hog_maze.maze.maze_game import MazeGame
+import hog_maze.debug.debuginfo as debuginfo
+import hog_maze.debug.debugmouse as debugmouse
+import hog_maze.debug.debugevent as debugevent
+import hog_maze.debug.debugmazestate as debugmazestate
 
 from IPython.display import clear_output
 from time import sleep
@@ -613,7 +613,7 @@ def game_loop():
 
         if settings.IS_DEBUG:
             draw_debug(dt)
-        print(GAME.current_maze.maze_graph.exit_direction)
+        # print(GAME.current_maze.maze_graph.exit_direction)
 
         pygame.display.update()
         FPS_CLOCK.tick(settings.FPS)

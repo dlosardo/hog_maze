@@ -1,9 +1,9 @@
 import math
 import random
 import pygame
-import settings
-from maze import MazeGraph
-import actor_obj
+import hog_maze.settings as settings
+from hog_maze.maze.maze import MazeGraph
+import hog_maze.actor_obj as actor_obj
 
 
 class MazeGame(object):

@@ -1,5 +1,5 @@
-import settings
-from component import HogMazeComponent
+import hog_maze.settings as settings
+from hog_maze.components.component import HogMazeComponent
 
 
 class PlayerInputComponent(HogMazeComponent):

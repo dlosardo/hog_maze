@@ -1,5 +1,5 @@
 import pygame
-import settings
+import hog_maze.settings as settings
 
 
 class DebugInfo(object):

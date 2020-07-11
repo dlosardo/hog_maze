@@ -4,7 +4,7 @@ from pygame.locals import (
     K_LEFT, K_RIGHT, MOUSEMOTION,
     MOUSEBUTTONUP
 )
-import settings
+import hog_maze.settings as settings
 
 
 class DebugEvent(object):

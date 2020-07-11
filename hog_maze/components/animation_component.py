@@ -1,5 +1,5 @@
 import pygame
-from component import HogMazeComponent
+from hog_maze.components.component import HogMazeComponent
 
 
 class AnimationComponent(HogMazeComponent):
