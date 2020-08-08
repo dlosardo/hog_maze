@@ -1,3 +1,4 @@
+import queue
 from hog_maze.states.state import HogMazeState
 
 
@@ -5,7 +6,7 @@ class MazeState(HogMazeState):
 
     def __init__(self, name_instance):
         super(MazeState, self).__init__('MAZE')
-        self.path = []
+        self.path = queue.Queue()
         self.edge_visits = {}
         self.name_instance = name_instance
         self.owner = None
@@ -23,7 +24,7 @@ class MazeState(HogMazeState):
     def reset_maze_state(self, edges):
         self.reset_edge_visits(edges)
         self.reset_rewards()
-        self.path = []
+        self.path = queue.Queue()
         self.end = False
 
     def print_state(self):

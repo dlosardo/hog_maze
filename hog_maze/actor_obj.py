@@ -24,6 +24,7 @@ class ActorObject(pygame.sprite.Sprite):
                  clickable=None,
                  player_input=None,
                  pickupable=None,
+                 ai=None,
                  inventory=None,
                  maze=None
                  ):
@@ -66,7 +67,8 @@ class ActorObject(pygame.sprite.Sprite):
             'ANIMATION': None,
             'PLAYER_INPUT': None,
             'CLICKABLE': None,
-            'PICKUPABLE': None}
+            'PICKUPABLE': None,
+            'AI': None}
         self.component_dict['MOVABLE'] = movable
         if self.component_dict['MOVABLE']:
             self.component_dict['MOVABLE'].owner = self
@@ -86,6 +88,9 @@ class ActorObject(pygame.sprite.Sprite):
         self.component_dict['PICKUPABLE'] = pickupable
         if self.component_dict['PICKUPABLE']:
             self.component_dict['PICKUPABLE'].owner = self
+        self.component_dict['AI'] = ai
+        if self.component_dict['AI']:
+            self.component_dict['AI'].owner = self
 
     def has_component(self, component):
         return self.component_dict[component] is not None

@@ -30,9 +30,18 @@ maze_starting_state = {
     'maze_height': 6,
     'area_width': WINDOW_WIDTH,
     'area_height': WINDOW_HEIGHT,
-    'wall_scale': 8
+    'wall_scale': 8,
+    'reward_dict': {'exit_reward': 10000,
+                    'valid_move_reward': -1,
+                    'invalid_move_reward': -1
+                    }
 }
 
+learning_state = {
+    'alpha': 0.3,
+    'gamma': 0.9,
+    'epsilon': 0.1
+}
 
 WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)
