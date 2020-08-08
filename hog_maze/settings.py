@@ -6,7 +6,7 @@ WINDOW_WIDTH = 32 * 30  # 640
 WINDOW_HEIGHT = 32 * 22
 HUD_OFFSETX = 0
 HUD_OFFSETY = 32 * 2
-FPS = 20  # frames per second setting
+FPS = 30  # frames per second setting
 IS_DEBUG = True
 
 HOGGY_ANIMATION_DELAY = 45
