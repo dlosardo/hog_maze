@@ -39,17 +39,11 @@ class Vertex(object):
                "SPRITE VISITS: {}\n"\
                "IS EXIT VERTEX: {} IS ENTRANCE VERTEX {}\n"\
                "TOP VERTEX: {}, RIGHT VERTEX: {}".format(
-                    self.north_wall, self.south_wall,
-                    self.east_wall, self.west_wall,
-                    self.has_tomato,
-                    sprite_with_tomato,
-                    self.name, self.row, self.col,
-                    self.sprite_visits,
-                    self.is_exit_vertex,
-                    self.is_entrance_vertex,
-                    self.is_top_vertex,
-                    self.is_right_vertex
-               )
+                   self.north_wall, self.south_wall, self.east_wall,
+                   self.west_wall, self.has_tomato, sprite_with_tomato,
+                   self.name, self.row, self.col, self.sprite_visits,
+                   self.is_exit_vertex, self.is_entrance_vertex,
+                   self.is_top_vertex, self.is_right_vertex)
         return text
 
     def __lt__(self, other):
@@ -119,13 +113,13 @@ class MazeGraph(object):
                             for i in range(0, self.maze_height)
                             ]
 
-    def set_rewards_table(self, actions):
+    def set_rewards_table(self, actions, reward_dict):
         rewards_table = defaultdict(int)
         for row in range(0, self.maze_height):
             for col in range(0, self.maze_width):
                 vertex = self.maze_layout[row][col]
                 rewards_table[vertex.name] = {
-                    a: [self.next_state_for_action(a, vertex)]
+                    a: [self.next_state_for_action(a, vertex, reward_dict)]
                     for a in actions
                 }
         return rewards_table
@@ -170,23 +164,26 @@ class MazeGraph(object):
         else:
             return False
 
-    def next_state_for_action(self, action, vertex):
-        print("Vertex: {} Action: {}".format(
-            vertex, action))
+    def next_state_for_action(self, action, vertex, reward_dict):
+        # print("Vertex: {} Action: {}".format(
+        #     vertex, action))
         if self.found_exit(action, vertex):
-            return (1.0,
+            return (0.25,
                     vertex.name,
-                    1000.,
+                    reward_dict['exit_reward'],
+                    # 10000.,
                     True)
         elif self.valid_move(action, vertex):
-            return (1.0,
+            return (0.25,
                     self.adjacent_vertex(vertex, action).name,
-                    -1,
+                    reward_dict['valid_move_reward'],
+                    # -1,
                     False)
         else:
-            return (10.0,
+            return (0.25,
                     vertex.name,
-                    -1,
+                    reward_dict['invalid_move_reward'],
+                    # -1,
                     False)
 
     def reward_for_action(self, a, vertex):
@@ -393,7 +390,7 @@ class MazeGraph(object):
 
     def traverse(self, vertex):
         if vertex.is_exit_vertex:
-            print("Found exit vertex {}".format(vertex))
+            # print("Found exit vertex {}".format(vertex))
             self.path.append(vertex)
             return vertex
         else:
@@ -410,10 +407,10 @@ class MazeGraph(object):
                         neighbor_no_wall = True
                     else:
                         all_neighbors.remove(next_vertex)
-                        print("Hit dead end at {}, then hill wall at {}"
-                              .format(vertex, next_vertex))
-                print("Hit dead end at {}, traveling back to {}".format(
-                    vertex, next_vertex))
+                        # print("Hit dead end at {}, then hill wall at {}"
+                        #      .format(vertex, next_vertex))
+                # print("Hit dead end at {}, traveling back to {}".format(
+                #    vertex, next_vertex))
                 self.path.append(next_vertex)
                 self.traverse(next_vertex)
             else:
@@ -422,13 +419,13 @@ class MazeGraph(object):
                 edge = frozenset([vertex, next_vertex])
                 self.edges_visits[edge] = True
                 if self.edges[edge] == MazeGraph.EMPTY:
-                    print("Traveling from {} to {}".format(
-                        vertex, next_vertex))
+                    # print("Traveling from {} to {}".format(
+                    #     vertex, next_vertex))
                     self.path.append(next_vertex)
                     self.traverse(next_vertex)
                 else:
-                    print("Hit wall from {} to {}".format(
-                        vertex, next_vertex))
+                    # print("Hit wall from {} to {}".format(
+                    #    vertex, next_vertex))
                     self.path.append(vertex)
                     self.traverse(vertex)
 
@@ -598,10 +595,12 @@ class MazeGraph(object):
             edge = frozenset([vertex, vertex_right])
             structure_right_of_vertex = self.edges[edge]
             if col == 0:
-                if vertex.is_gateway and (self.exit_direction == 'LEFT'
-                                          or
-                                          self.entrance_direction == 'LEFT'
-                                          ):
+                if (
+                    (vertex.is_entrance_vertex
+                     and self.entrance_direction == 'LEFT')
+                ) or (
+                    vertex.is_exit_vertex and self.exit_direction == 'LEFT'
+                ):
                     structure_left_of_vertex = MazeGraph.EMPTY
                 else:
                     structure_left_of_vertex = MazeGraph.VWALL
@@ -610,10 +609,12 @@ class MazeGraph(object):
                 edge = frozenset([vertex, vertex_left])
                 structure_left_of_vertex = self.edges[edge]
         if col == (self.maze_width - 1):
-            if vertex.is_gateway and (self.exit_direction == 'RIGHT'
-                                      or
-                                      self.entrance_direction == 'RIGHT'
-                                      ):
+            if (
+                (vertex.is_entrance_vertex
+                 and self.entrance_direction == 'RIGHT')
+            ) or (
+                vertex.is_exit_vertex and self.exit_direction == 'RIGHT'
+            ):
                 structure_right_of_vertex = MazeGraph.EMPTY
             else:
                 structure_right_of_vertex = MazeGraph.VWALL
@@ -621,10 +622,11 @@ class MazeGraph(object):
             edge = frozenset([vertex, vertex_left])
             structure_left_of_vertex = self.edges[edge]
         if row == 0:
-            if vertex.is_gateway and (self.exit_direction == 'TOP'
-                                      or
-                                      self.entrance_direction == 'TOP'
-                                      ):
+            if (
+                vertex.is_entrance_vertex and self.entrance_direction == 'TOP'
+            ) or (
+                vertex.is_exit_vertex and self.exit_direction == 'TOP'
+            ):
                 structure_above_vertex = MazeGraph.EMPTY
             else:
                 structure_above_vertex = MazeGraph.HWALL
@@ -633,10 +635,12 @@ class MazeGraph(object):
             edge = frozenset([vertex, vertex_above])
             structure_above_vertex = self.edges[edge]
             if row == (self.maze_height - 1):
-                if vertex.is_gateway and (self.exit_direction == 'BOTTOM'
-                                          or
-                                          self.entrance_direction == 'BOTTOM'
-                                          ):
+                if (
+                    (vertex.is_entrance_vertex
+                     and self.entrance_direction == 'BOTTOM')
+                ) or (
+                    vertex.is_exit_vertex and self.exit_direction == 'BOTTOM'
+                ):
                     structure_below_vertex = MazeGraph.EMPTY
                 else:
                     structure_below_vertex = MazeGraph.HWALL
