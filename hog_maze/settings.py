@@ -31,7 +31,8 @@ maze_starting_state = {
     'area_width': WINDOW_WIDTH,
     'area_height': WINDOW_HEIGHT,
     'wall_scale': 8,
-    'reward_dict': {'exit_reward': 10000,
+    'reward_dict': {'exit_reward': 10,
+                    'tomato_reward': 10000,
                     'valid_move_reward': -1,
                     'invalid_move_reward': -1
                     }

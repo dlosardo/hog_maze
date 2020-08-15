@@ -123,3 +123,13 @@ class ActorObject(pygame.sprite.Sprite):
     @y.setter
     def y(self, y):
         self.rect.y = y
+
+    @property
+    def coords(self):
+        return (self.x,
+                self.y)
+
+    @coords.setter
+    def coords(self, x, y):
+        self.x = x
+        self.y = y

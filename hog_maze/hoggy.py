@@ -200,7 +200,7 @@ def game_new():
            'animation': AnimationComponent(),
            'orientation': OrientationComponent('horizontal', 'right'),
            'movable': MovableComponent('ai_hoggy_move', 6),
-           'ai': AIComponent(direction='right')
+           'ai': AIComponent()
            })
     ai_hoggy.get_state('MAZE').reset_edge_visits(
         GAME.current_maze.maze_graph.edges)
@@ -210,6 +210,7 @@ def game_new():
     GAME.main_player = main_player
     GAME.ai_hoggy = ai_hoggy
     GAME.set_ri_object()
+    # GAME.ai_hoggy.get_component('AI').destination = GAME.main_player
     GAME.current_objects['UI_BUTTONS'].add(randomize_button)
 
 
@@ -273,27 +274,35 @@ def handle_keys(event):
     return "no-action"
 
 
+def handle_event_paused(event):
+    if event.type == MOUSEBUTTONUP:
+        mousex, mousey = event.pos
+        vertex = GAME.current_maze.vertex_from_x_y(
+            mousex - settings.HUD_OFFSETX,
+            mousey - settings.HUD_OFFSETY)
+        if vertex:
+            DEBUGMAZESTATE.update(vertex)
+            draw_game()
+            draw_debug(0)
+            pygame.display.update()
+    if event.type == KEYUP and event.key == K_p:
+        GAME.is_paused = False
+
+
 def game_loop():
     game_quit = False
     while not game_quit:
         while GAME.is_paused:
             events = pygame.event.get()
             for event in events:
-                if event.type == MOUSEBUTTONUP:
-                    mousex, mousey = event.pos
-                    vertex = GAME.current_maze.vertex_from_x_y(
-                        mousex - settings.HUD_OFFSETX,
-                        mousey - settings.HUD_OFFSETY)
-                    if vertex:
-                        DEBUGMAZESTATE.update(vertex)
-                        draw_game()
-                        draw_debug(0)
-                        pygame.display.update()
-                if event.type == KEYUP and event.key == K_p:
-                    GAME.is_paused = False
+                handle_event_paused(event)
         dt = FPS_CLOCK.get_time()
         events = pygame.event.get()
         mousex, mousey = pygame.mouse.get_pos()
+        if not GAME.ai_hoggy_reached_exit_vertex():
+            GAME.set_destination_ai_hoggy()
+        if not GAME.ai_hoggy_reached_exit_vertex():
+            GAME.recalculate_value_function()
         if len(events) == 0:
             events.append("no-action")
         for event in events:

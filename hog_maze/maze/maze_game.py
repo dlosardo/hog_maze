@@ -168,6 +168,31 @@ class MazeGame(object):
         sprite.get_state(
             'MAZE').current_vertex = state_vertex
 
+    def next_dest_from_value_matrix(self, V, state, sprite):
+        vertex = self.maze_graph.get_vertex_by_name(state)
+        if vertex.is_exit_vertex:
+            point = self.exit_coords_for_vertex(vertex, sprite)
+            sprite.get_state('MAZE').end = True
+            return point
+        valid_actions = self.valid_actions_for_vertex(vertex)
+        if random.uniform(0, 1) < .1:
+            print("Exploring space...")
+            rc = random.choice(range(0, len(valid_actions)))
+            state = self.maze_graph.adjacent_vertex(
+                vertex, valid_actions[rc]).name
+        else:
+            vals = [(self.maze_graph.adjacent_vertex(vertex, a).name,
+                     V[self.maze_graph.adjacent_vertex(vertex, a).name][0])
+                    for a in valid_actions]
+            max_value = np.max([v[1] for v in vals])
+            state = [v[0] for v in vals
+                     if v[1] == max_value][0]
+        next_vertex = self.maze_graph.get_vertex_by_name(state)
+        (x_dest,
+         y_dest) = self.topleft_sprite_center_in_vertex(
+             next_vertex, sprite)
+        return Point(x_dest, y_dest)
+
     def path_from_value_matrix(self, V, states, sprite):
         state = 0
         end = False

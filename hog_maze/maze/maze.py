@@ -171,19 +171,22 @@ class MazeGraph(object):
             return (0.25,
                     vertex.name,
                     reward_dict['exit_reward'],
-                    # 10000.,
                     True)
         elif self.valid_move(action, vertex):
+            # print("ACTION: {}, VERTEX: {}".format(action, vertex))
+            next_vertex = self.adjacent_vertex(vertex, action)
+            if next_vertex.has_tomato:
+                reward = reward_dict['tomato_reward']
+            else:
+                reward = reward_dict['valid_move_reward']
             return (0.25,
-                    self.adjacent_vertex(vertex, action).name,
-                    reward_dict['valid_move_reward'],
-                    # -1,
+                    next_vertex.name,
+                    reward,
                     False)
         else:
             return (0.25,
                     vertex.name,
                     reward_dict['invalid_move_reward'],
-                    # -1,
                     False)
 
     def reward_for_action(self, a, vertex):

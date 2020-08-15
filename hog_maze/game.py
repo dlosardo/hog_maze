@@ -1,4 +1,5 @@
 import pygame
+import numpy as np
 import hog_maze.settings as settings
 import hog_maze.actor_obj as actor_obj
 from hog_maze.maze.maze_game import MazeGame
@@ -71,13 +72,44 @@ class Game():
         self.ri_obj.initialize_value_function()
         self.ri_obj.value_function()
         self.print_maze_path()
-        self.set_path_for_ai_hoggy()
+
+        def format_float(num):
+            return np.format_float_positional(round(num, 2))
+
+        r31 = np.vectorize(format_float)
+        print(r31(self.ri_obj.V.reshape(self.current_maze.maze_width,
+                                        self.current_maze.maze_height)))
+        # self.set_path_for_ai_hoggy()
+        current_vertex = self.current_maze.vertex_from_x_y(
+            *self.ai_hoggy.coords)
+        next_dest = self.current_maze.next_dest_from_value_matrix(
+            self.ri_obj.V, current_vertex.name, self.ai_hoggy)
+        self.ai_hoggy.get_component('AI').destination = next_dest
+
+    def recalculate_value_function(self):
+        self.ri_obj.set_rewards_table(
+            self.current_maze.maze_graph.set_rewards_table,
+            settings.maze_starting_state['reward_dict'])
+        self.ri_obj.set_rewards_matrix()
+        self.ri_obj.initialize_value_function()
+        self.ri_obj.value_function()
 
     def set_path_for_ai_hoggy(self):
         self.current_maze.path_from_value_matrix(
             self.ri_obj.V, self.ri_obj.states, self.ai_hoggy)
         next_dest = self.ai_hoggy.get_state('MAZE').path.get()
         self.ai_hoggy.get_component('AI').destination = next_dest
+
+    def set_destination_ai_hoggy(self):
+        if self.ai_hoggy.get_component('AI').reached_destination():
+            current_vertex = self.current_maze.vertex_from_x_y(
+                *self.ai_hoggy.coords)
+            next_dest = self.current_maze.next_dest_from_value_matrix(
+                self.ri_obj.V, current_vertex.name, self.ai_hoggy)
+            self.ai_hoggy.get_component('AI').destination = next_dest
+
+    def ai_hoggy_reached_exit_vertex(self):
+        return self.ai_hoggy.get_state('MAZE').end
 
     def reset_maze(self, maze_width, maze_height,
                    area_width, area_height,
