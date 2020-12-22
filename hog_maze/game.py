@@ -37,9 +37,10 @@ class Game():
         self.hud_rect = self.hud.get_rect()
         self.set_hud()
         self.is_paused = False
-        self.alpha = 0.3
-        self.gamma = 0.9
-        self.epsilon = 0.1
+        self.max_alg = False
+        self.alpha = settings.learning_state['alpha']
+        self.gamma = settings.learning_state['gamma']
+        self.epsilon = settings.learning_state['epsilon']
 
     @property
     def main_player(self):
@@ -58,6 +59,12 @@ class Game():
     def ai_hoggy(self, ai_hoggy_sprite):
         self.current_objects['AI_HOGGY'].add(
             ai_hoggy_sprite)
+
+    def toggle_alg(self):
+        if self.max_alg:
+            self.max_alg = False
+        else:
+            self.max_alg = True
 
     def set_ri_object(self):
         self.ri_obj = RILearning(
@@ -83,7 +90,8 @@ class Game():
         current_vertex = self.current_maze.vertex_from_x_y(
             *self.ai_hoggy.coords)
         next_dest = self.current_maze.next_dest_from_value_matrix(
-            self.ri_obj.V, current_vertex.name, self.ai_hoggy)
+            self.ri_obj.V, current_vertex.name, self.ai_hoggy,
+            self.max_alg, self.epsilon)
         self.ai_hoggy.get_component('AI').destination = next_dest
 
     def recalculate_value_function(self):
@@ -105,7 +113,8 @@ class Game():
             current_vertex = self.current_maze.vertex_from_x_y(
                 *self.ai_hoggy.coords)
             next_dest = self.current_maze.next_dest_from_value_matrix(
-                self.ri_obj.V, current_vertex.name, self.ai_hoggy)
+                self.ri_obj.V, current_vertex.name, self.ai_hoggy,
+                self.max_alg, self.epsilon)
             self.ai_hoggy.get_component('AI').destination = next_dest
 
     def ai_hoggy_reached_exit_vertex(self):

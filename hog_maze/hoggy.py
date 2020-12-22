@@ -2,7 +2,8 @@ import pygame
 from pygame.locals import (
     QUIT, KEYDOWN, KEYUP, K_UP, K_DOWN,
     K_LEFT, K_RIGHT, MOUSEMOTION,
-    MOUSEBUTTONUP, K_SPACE, K_d, K_p
+    MOUSEBUTTONUP, K_SPACE, K_d, K_p,
+    K_v, K_c
 )
 import hog_maze.settings as settings
 import hog_maze.actor_obj as actor_obj
@@ -199,7 +200,7 @@ def game_new():
            'maze': MazeState('maze_state'),
            'animation': AnimationComponent(),
            'orientation': OrientationComponent('horizontal', 'right'),
-           'movable': MovableComponent('ai_hoggy_move', 6),
+           'movable': MovableComponent('ai_hoggy_move', 12),
            'ai': AIComponent()
            })
     ai_hoggy.get_state('MAZE').reset_edge_visits(
@@ -246,6 +247,20 @@ def handle_keys(event):
             settings.IS_DEBUG = not settings.IS_DEBUG
         if event.key == K_p:
             GAME.is_paused = True
+        if event.key == K_c:
+            GAME.toggle_alg()
+            alg_dict = {True: 'Max', False: 'Dist'}
+            print("Alg: {}".format(alg_dict[GAME.max_alg]))
+        if event.key == K_v:
+            def format_float(num):
+                return np.format_float_positional(round(num, 2))
+            import numpy as np
+            r31 = np.vectorize(format_float)
+            print(r31(GAME.ri_obj.V.reshape(GAME.current_maze.maze_width,
+                                            GAME.current_maze.maze_height
+                                            )))
+            alg_dict = {True: 'Max', False: 'Dist'}
+            print("Alg: {}".format(alg_dict[GAME.max_alg]))
     if event.type == MOUSEMOTION:
         mousex, mousey = event.pos
         DEBUGM.update(mousex, mousey)

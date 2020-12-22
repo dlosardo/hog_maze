@@ -168,14 +168,42 @@ class MazeGame(object):
         sprite.get_state(
             'MAZE').current_vertex = state_vertex
 
-    def next_dest_from_value_matrix(self, V, state, sprite):
+    def draw_from_dist(self, vals):
+        v_sum = np.sum([v[1] for v in vals])
+        perc = [(v[0], v[1] / v_sum) for v in vals]
+        rn = random.uniform(0, 1)
+        print(rn)
+        cum_perc = perc[0][1]
+        for i in range(0, len(perc)):
+            if rn <= cum_perc:
+                return perc[i][0]
+            cum_perc += perc[i+1][1]
+
+    def draw_from_dist_1(self, vals):
+        v_perc = self.min_max_perc(vals)
+        v_sorted = sorted(v_perc, key=lambda x: x[1])
+        rn = random.uniform(0, 1)
+        for i in range(0, len(v_sorted)):
+            if rn <= v_sorted[i][1]:
+                return v_sorted[i][0]
+
+    def min_max_perc(self, vals):
+        min_ = np.min([v[1] for v in vals])
+        max_ = np.max([v[1] for v in vals])
+        min_max_ = [(v[0], (v[1] - min_ + 1) / (max_ - min_ + 1))
+                    for v in vals]
+        return min_max_
+
+    def next_dest_from_value_matrix(self, V, state, sprite,
+                                    max_alg, epsilon):
         vertex = self.maze_graph.get_vertex_by_name(state)
-        if vertex.is_exit_vertex:
-            point = self.exit_coords_for_vertex(vertex, sprite)
-            sprite.get_state('MAZE').end = True
-            return point
         valid_actions = self.valid_actions_for_vertex(vertex)
-        if random.uniform(0, 1) < .1:
+        if vertex.is_exit_vertex:
+            if random.uniform(0, 1) < .5:
+                point = self.exit_coords_for_vertex(vertex, sprite)
+                sprite.get_state('MAZE').end = True
+                return point
+        if random.uniform(0, 1) < epsilon:
             print("Exploring space...")
             rc = random.choice(range(0, len(valid_actions)))
             state = self.maze_graph.adjacent_vertex(
@@ -184,9 +212,12 @@ class MazeGame(object):
             vals = [(self.maze_graph.adjacent_vertex(vertex, a).name,
                      V[self.maze_graph.adjacent_vertex(vertex, a).name][0])
                     for a in valid_actions]
-            max_value = np.max([v[1] for v in vals])
-            state = [v[0] for v in vals
-                     if v[1] == max_value][0]
+            if max_alg:
+                max_value = np.max([v[1] for v in vals])
+                state = [v[0] for v in vals
+                         if v[1] == max_value][0]
+            else:
+                state = self.draw_from_dist_1(vals)
         next_vertex = self.maze_graph.get_vertex_by_name(state)
         (x_dest,
          y_dest) = self.topleft_sprite_center_in_vertex(
@@ -226,19 +257,35 @@ class MazeGame(object):
         actions = []
         if (not vertex.north_wall) and not (
              vertex.is_entrance_vertex and
-             self.maze_graph.entrance_direction == 'TOP'):
+             self.maze_graph.entrance_direction == 'TOP'
+        ) and not (
+            vertex.is_exit_vertex and
+            self.maze_graph.exit_direction == 'TOP'
+        ):
             actions.append(MazeGame.NORTH)
         if (not vertex.south_wall) and not (
              vertex.is_entrance_vertex and
-             self.maze_graph.entrance_direction == 'BOTTOM'):
+             self.maze_graph.entrance_direction == 'BOTTOM'
+        ) and not (
+            vertex.is_exit_vertex and
+            self.maze_graph.exit_direction == 'BOTTOM'
+        ):
             actions.append(MazeGame.SOUTH)
         if (not vertex.east_wall) and not (
              vertex.is_entrance_vertex and
-             self.maze_graph.entrance_direction == 'RIGHT'):
+             self.maze_graph.entrance_direction == 'RIGHT'
+        ) and not (
+            vertex.is_exit_vertex and
+            self.maze_graph.exit_direction == 'RIGHT'
+        ):
             actions.append(MazeGame.EAST)
         if (not vertex.west_wall) and not (
              vertex.is_entrance_vertex and
-             self.maze_graph.entrance_direction == 'LEFT'):
+             self.maze_graph.entrance_direction == 'LEFT'
+        ) and not (
+            vertex.is_exit_vertex and
+            self.maze_graph.exit_direction == 'LEFT'
+        ):
             actions.append(MazeGame.WEST)
         return actions
 
