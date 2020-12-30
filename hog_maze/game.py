@@ -1,11 +1,13 @@
 import pygame
-import numpy as np
 import hog_maze.settings as settings
+from hog_maze.settings import r31
+from hog_maze.util.util_draw import draw_text
 import hog_maze.actor_obj as actor_obj
 from hog_maze.maze.maze_game import MazeGame
 from hog_maze.maze.ri_learning import RILearning
 from hog_maze.components.pickupable_component import PickupableComponent
 from hog_maze.components.animation_component import AnimationComponent
+# from threading import Thread
 
 
 class Game():
@@ -37,10 +39,16 @@ class Game():
         self.hud_rect = self.hud.get_rect()
         self.set_hud()
         self.is_paused = False
-        self.max_alg = False
+        self.max_alg = settings.max_alg
+        self.action_space = 4
+        self.actions = [MazeGame.NORTH,
+                        MazeGame.SOUTH,
+                        MazeGame.EAST,
+                        MazeGame.WEST]
         self.alpha = settings.learning_state['alpha']
         self.gamma = settings.learning_state['gamma']
         self.epsilon = settings.learning_state['epsilon']
+        self.recalc = False
 
     @property
     def main_player(self):
@@ -71,36 +79,48 @@ class Game():
             self.epsilon, self.alpha, self.gamma,
             self.current_maze.maze_width*self.current_maze.maze_height,
             len(self.actions), self.actions)
-        self.ri_obj.set_rewards_table(
-            self.current_maze.maze_graph.set_rewards_table,
-            settings.maze_starting_state['reward_dict'])
-        self.ri_obj.set_state_trans_matrix()
-        self.ri_obj.set_rewards_matrix()
-        self.ri_obj.initialize_value_function()
-        self.ri_obj.value_function()
+        self.calculate_value_function()
+        # self.ri_obj.value_function()
         self.print_maze_path()
-
-        def format_float(num):
-            return np.format_float_positional(round(num, 2))
-
-        r31 = np.vectorize(format_float)
-        print(r31(self.ri_obj.V.reshape(self.current_maze.maze_width,
-                                        self.current_maze.maze_height)))
+        # print(r31(self.ri_obj.V.reshape(self.current_maze.maze_width,
+        # self.current_maze.maze_height)))
+        v_matrix = self.ri_obj.V.reshape(self.current_maze.maze_width,
+                                         self.current_maze.maze_height
+                                         ).copy()
+        # norms = np.linalg.norm(v_matrix, axis=None, keepdims=True)
+        # v_matrix /= norms
+        # v_matrix *= 100
+        print(r31(v_matrix))
+        alg_dict = {True: 'Max', False: 'Dist'}
+        print("Alg: {}".format(alg_dict[self.max_alg]))
         # self.set_path_for_ai_hoggy()
         current_vertex = self.current_maze.vertex_from_x_y(
             *self.ai_hoggy.coords)
-        next_dest = self.current_maze.next_dest_from_value_matrix(
-            self.ri_obj.V, current_vertex.name, self.ai_hoggy,
-            self.max_alg, self.epsilon)
+        # next_dest = self.current_maze.next_dest_from_value_matrix(
+        # self.ri_obj.V, current_vertex, self.ai_hoggy,
+        # self.max_alg, self.epsilon)
+        next_dest = self.current_maze.next_dest_from_pi_a_s(
+            self.ri_obj.pi_a_s, current_vertex, self.ai_hoggy)
         self.ai_hoggy.get_component('AI').destination = next_dest
 
-    def recalculate_value_function(self):
+    def calculate_value_function(self):
         self.ri_obj.set_rewards_table(
             self.current_maze.maze_graph.set_rewards_table,
             settings.maze_starting_state['reward_dict'])
-        self.ri_obj.set_rewards_matrix()
+        self.ri_obj.set_pi_a_s(self.current_maze.maze_graph.get_pi_a_s)
+        # self.ri_obj.set_state_trans_matrix()
+        # self.ri_obj.set_rewards_matrix()
         self.ri_obj.initialize_value_function()
-        self.ri_obj.value_function()
+        self.ri_obj.value_iteration_2()
+        # self.ri_obj.policy_iteration()
+
+    def update_value_function(self):
+        self.ri_obj.set_rewards_table(
+            self.current_maze.maze_graph.set_rewards_table,
+            settings.maze_starting_state['reward_dict'])
+        # self.ri_obj.set_pi_a_s(self.current_maze.maze_graph.get_pi_a_s)
+        # self.ri_obj.theta = 0.001
+        self.ri_obj.policy_iteration()
 
     def set_path_for_ai_hoggy(self):
         self.current_maze.path_from_value_matrix(
@@ -110,11 +130,19 @@ class Game():
 
     def set_destination_ai_hoggy(self):
         if self.ai_hoggy.get_component('AI').reached_destination():
+            if self.recalc:
+                # t = Thread(target=self.calculate_value_function)
+                # t.daemon = True
+                # t.start()
+                self.calculate_value_function()
+                self.recalc = False
             current_vertex = self.current_maze.vertex_from_x_y(
                 *self.ai_hoggy.coords)
-            next_dest = self.current_maze.next_dest_from_value_matrix(
-                self.ri_obj.V, current_vertex.name, self.ai_hoggy,
-                self.max_alg, self.epsilon)
+            next_dest = self.current_maze.next_dest_from_pi_a_s(
+                self.ri_obj.pi_a_s, current_vertex, self.ai_hoggy)
+            # next_dest = self.current_maze.next_dest_from_value_matrix(
+            # self.ri_obj.V, current_vertex, self.ai_hoggy,
+            # self.max_alg, self.epsilon)
             self.ai_hoggy.get_component('AI').destination = next_dest
 
     def ai_hoggy_reached_exit_vertex(self):
@@ -138,11 +166,6 @@ class Game():
         self.current_objects['MAZE_WALLS'].add(
             self.current_maze.maze_walls)
         self.place_tomatoes()
-        self.action_space = 4
-        self.actions = [MazeGame.NORTH,
-                        MazeGame.SOUTH,
-                        MazeGame.EAST,
-                        MazeGame.WEST]
         if self.current_objects['AI_HOGGY']:
             print("SET AI HOGGY")
             self.ai_hoggy.get_state(
@@ -182,6 +205,14 @@ class Game():
                'name_object': 'hud_tomato'
                })
         self.current_objects['HUD'].add(tomato)
+
+    def draw_to_hud(self):
+        ntomatoes = self.main_player.get_state(
+              'INVENTORY').inventory.get('tomato')
+        draw_text(self.hud, "x",
+                  24, 55, 28, settings.ORANGE)
+        draw_text(self.hud, "{}".format(ntomatoes),
+                  40, 75, 30, settings.ORANGE)
 
     def print_maze_path(self):
         maze_path = ""

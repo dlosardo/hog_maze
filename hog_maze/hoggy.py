@@ -6,8 +6,8 @@ from pygame.locals import (
     K_v, K_c
 )
 import hog_maze.settings as settings
+from hog_maze.settings import r31
 import hog_maze.actor_obj as actor_obj
-from hog_maze.util.util_draw import draw_text
 from hog_maze.game import Game
 from hog_maze.components.animation_component import AnimationComponent
 from hog_maze.components.player_input_component import PlayerInputComponent
@@ -59,12 +59,7 @@ def draw_game():
                                              (sprite.x, sprite.y))
             else:
                 GAME.hud.blit(sprite.image, (sprite.x, sprite.y))
-                ntomatoes = GAME.main_player.get_state(
-                      'INVENTORY').inventory.get('tomato')
-                draw_text(GAME.hud, "x",
-                          24, 55, 28, settings.ORANGE)
-                draw_text(GAME.hud, "{}".format(ntomatoes),
-                          40, 75, 30, settings.ORANGE)
+                GAME.draw_to_hud()
     WORLD.blit(GAME.current_maze.image, (0, settings.HUD_OFFSETY))
     WORLD.blit(GAME.hud, (0, 0))
 
@@ -113,13 +108,16 @@ def hoggy_collision_tomatoes(sprite, colliding_pickups):
             pickup.get_component('PICKUPABLE').picked_up = True
             sprite.get_state('INVENTORY').add_item(
                 pickup.get_component('PICKUPABLE').name_instance)
+            print("pick up tomato")
             vertex = GAME.current_maze.vertex_from_x_y(
                 pickup.x, pickup.y)
             # print("VERTEX WITH TOMATO: {}".format(vertex))
             vertex.has_tomato = False
             vertex.sprite_with_tomato = sprite
             if sprite.name_object == 'ai_hoggy':
-                sprite.get_state('MAZE').rewards += 5
+                GAME.recalc = True
+                # GAME.update_value_function()
+                # GAME.calculate_value_function()
 
 
 def handle_collisions():
@@ -200,7 +198,7 @@ def game_new():
            'maze': MazeState('maze_state'),
            'animation': AnimationComponent(),
            'orientation': OrientationComponent('horizontal', 'right'),
-           'movable': MovableComponent('ai_hoggy_move', 12),
+           'movable': MovableComponent('ai_hoggy_move', 24),
            'ai': AIComponent()
            })
     ai_hoggy.get_state('MAZE').reset_edge_visits(
@@ -252,13 +250,16 @@ def handle_keys(event):
             alg_dict = {True: 'Max', False: 'Dist'}
             print("Alg: {}".format(alg_dict[GAME.max_alg]))
         if event.key == K_v:
-            def format_float(num):
-                return np.format_float_positional(round(num, 2))
-            import numpy as np
-            r31 = np.vectorize(format_float)
-            print(r31(GAME.ri_obj.V.reshape(GAME.current_maze.maze_width,
-                                            GAME.current_maze.maze_height
-                                            )))
+            v_matrix = GAME.ri_obj.V.reshape(GAME.current_maze.maze_width,
+                                             GAME.current_maze.maze_height
+                                             ).copy()
+            # norms = np.linalg.norm(v_matrix, axis=None, keepdims=True)
+            # v_matrix /= norms
+            # v_matrix *= 100000000
+            # print(r31(GAME.ri_obj.V.reshape(GAME.current_maze.maze_width,
+            # GAME.current_maze.maze_height
+            # )))
+            print(r31(v_matrix))
             alg_dict = {True: 'Max', False: 'Dist'}
             print("Alg: {}".format(alg_dict[GAME.max_alg]))
     if event.type == MOUSEMOTION:
@@ -316,8 +317,8 @@ def game_loop():
         mousex, mousey = pygame.mouse.get_pos()
         if not GAME.ai_hoggy_reached_exit_vertex():
             GAME.set_destination_ai_hoggy()
-        if not GAME.ai_hoggy_reached_exit_vertex():
-            GAME.recalculate_value_function()
+        # if not GAME.ai_hoggy_reached_exit_vertex():
+            # GAME.calculate_value_function()
         if len(events) == 0:
             events.append("no-action")
         for event in events:

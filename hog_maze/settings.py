@@ -1,3 +1,4 @@
+import numpy as np
 from pathlib import Path
 path = Path(__file__).parent / "assets"
 
@@ -10,6 +11,8 @@ FPS = 30  # frames per second setting
 IS_DEBUG = True
 
 HOGGY_ANIMATION_DELAY = 45
+# MAZE_SEED = 10
+MAZE_SEED = 11
 
 sprite_sheet_dict = {0: {'image_filename':
                          "{}/hoggy_spritesheet_2.png".format(path),
@@ -31,18 +34,24 @@ maze_starting_state = {
     'area_width': WINDOW_WIDTH,
     'area_height': WINDOW_HEIGHT,
     'wall_scale': 8,
-    'reward_dict': {'exit_reward': 10000,
-                    'tomato_reward': 100,
+    # 'reward_dict': {'exit_reward': 10000,
+    # 'tomato_reward': 10,
+    # 'valid_move_reward': -1,
+    # 'invalid_move_reward': -10
+    # }
+    'reward_dict': {'exit_reward': 10,
+                    'tomato_reward': 1000,
                     'valid_move_reward': -1,
-                    'invalid_move_reward': -10
+                    'invalid_move_reward': -10000
                     }
 }
 
 learning_state = {
     'alpha': 0.3,
     'gamma': 0.9,
-    'epsilon': 0.1
+    'epsilon': 0.0
 }
+max_alg = True
 
 WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)
@@ -71,3 +80,10 @@ class ColorFactory():
             return BLACK
         elif color == 'orange':
             return ORANGE
+
+
+def format_float(num):
+    return np.format_float_positional(round(num, 2))
+
+
+r31 = np.vectorize(format_float)

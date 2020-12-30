@@ -1,5 +1,6 @@
 import random
 from collections import defaultdict
+import numpy as np
 from hog_maze.util.stack import StackArray
 
 
@@ -108,7 +109,7 @@ class MazeGraph(object):
         self.end_vertex = None
         self.entrance_direction = None
         self.exit_direction = None
-        self.stack = StackArray(200)
+        self.stack = StackArray(2000)
         self.maze_layout = [[None] * self.maze_width
                             for i in range(0, self.maze_height)
                             ]
@@ -124,15 +125,28 @@ class MazeGraph(object):
                 }
         return rewards_table
 
+    def prob_action_given_state(self, vertex, action):
+        return 0.25
+
+    def get_pi_a_s(self, actions):
+        pi_a_s = np.zeros([
+            self.maze_width * self.maze_height, len(actions)
+        ])
+        for a in actions:
+            for row in range(0, self.maze_height):
+                for col in range(0, self.maze_width):
+                    vertex = self.maze_layout[row][col]
+                    p = self.prob_action_given_state(vertex, a)
+                    pi_a_s[vertex.name][a] = p
+        return pi_a_s
+
     def found_exit(self, a, vertex):
-        if (a == 0 and vertex.is_exit_vertex and
-            self.exit_direction == 'TOP') or (
-                a == 1 and vertex.is_exit_vertex and self.exit_direction ==
-                'BOTTOM') or (
-                    a == 2 and vertex.is_exit_vertex and self.exit_direction ==
-                    'RIGHT') or (
-                        a == 3 and vertex.is_exit_vertex and
-                        self.exit_direction == 'LEFT'):
+        if not vertex.is_exit_vertex:
+            return False
+        if (a == 0 and self.exit_direction == 'TOP') or (
+                a == 1 and self.exit_direction == 'BOTTOM') or (
+                    a == 2 and self.exit_direction == 'RIGHT') or (
+                        a == 3 and self.exit_direction == 'LEFT'):
             return True
         else:
             return False
@@ -168,7 +182,7 @@ class MazeGraph(object):
         # print("Vertex: {} Action: {}".format(
         #     vertex, action))
         if self.found_exit(action, vertex):
-            return (0.25,
+            return (1,
                     vertex.name,
                     reward_dict['exit_reward'],
                     True)
@@ -179,23 +193,15 @@ class MazeGraph(object):
                 reward = reward_dict['tomato_reward']
             else:
                 reward = reward_dict['valid_move_reward']
-            return (0.25,
+            return (1,
                     next_vertex.name,
                     reward,
                     False)
         else:
-            return (0.25,
+            return (1,
                     vertex.name,
                     reward_dict['invalid_move_reward'],
                     False)
-
-    def reward_for_action(self, a, vertex):
-        if self.found_exit(a, vertex):
-            return 100
-        elif self.valid_move(a, vertex):
-            return -1
-        else:
-            return -5
 
     def set_maze_layout(self):
         c = 0
@@ -323,6 +329,7 @@ class MazeGraph(object):
 
     def create_maze_path(self, start_vertex_name,
                          entrance_direction='LEFT'):
+        # random.seed(settings.MAZE_SEED)
         self.entrance_direction = entrance_direction
         current_vertex = self.get_vertex_by_name(start_vertex_name)
         self.start_vertex = current_vertex
