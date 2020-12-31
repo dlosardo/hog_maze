@@ -152,7 +152,7 @@ def game_initialize():
                                      settings.WINDOW_HEIGHT +
                                      settings.HUD_OFFSETY))
     FPS_CLOCK = pygame.time.Clock()
-    pygame.time.set_timer(AI_HOGGY_MOVE, MOVE_AI_HOGGY_TIMEOUT)
+    # pygame.time.set_timer(AI_HOGGY_MOVE, MOVE_AI_HOGGY_TIMEOUT)
 
 
 def game_new():
@@ -163,15 +163,18 @@ def game_new():
     (x, y) = GAME.current_maze.center_for_vertex(starting_vertex)
     print("CENTER X: {}, CENTER Y: {}".format(x, y))
     main_player = actor_obj.ActorObject(
-        **{'x': x - (32 / 2),
-           'y': y - (32 / 2),
-           'height': 32, 'width': 32,
-           'sprite_sheet_key': 0,
+        **{'x': x - (settings.SPRITE_SIZE / 2),
+           'y': y - (settings.SPRITE_SIZE / 2),
+           'height': settings.SPRITE_SIZE,
+           'width': settings.SPRITE_SIZE,
+           'sprite_sheet_key':
+           settings.HOGGY_STARTING_STATS['sprite_sheet_key'],
            'name_object': 'hoggy',
            'animation': AnimationComponent(),
            'player_input': PlayerInputComponent(),
            'orientation': OrientationComponent('horizontal', 'right'),
-           'movable': MovableComponent('hoggy_move', 6),
+           'movable': MovableComponent('hoggy_move',
+                                       settings.HOGGY_STARTING_STATS['speed']),
            'inventory': InventoryState('tomato')
            })
 
@@ -180,25 +183,28 @@ def game_new():
     randomize_button = actor_obj.ActorObject(**{
         'x': settings.WINDOW_WIDTH - 200,
         'y': 0,
-        'height': 64, 'width': 64,
+        'height': settings.SPRITE_SIZE * 2,
+        'width': settings.SPRITE_SIZE * 2,
         'in_hud': True,
         'sprite_sheet_key': 2,
         'name_object': 'randomize_button',
         'animation': AnimationComponent(),
         'clickable': ClickableComponent('circle', reset_maze,
-                                        **settings.maze_starting_state)
+                                        **settings.MAZE_STARTING_STATE)
     })
     ai_hoggy = actor_obj.ActorObject(
-        **{'x': x - (32 / 2),
-           'y': y - (32 / 2),
-           'height': 32, 'width': 32,
-           'sprite_sheet_key': 0,
+        **{'x': x - (settings.SPRITE_SIZE / 2),
+           'y': y - (settings.SPRITE_SIZE / 2),
+           'height': settings.SPRITE_SIZE, 'width': settings.SPRITE_SIZE,
+           'sprite_sheet_key': settings.AI_HOGGY_STARTING_STATS[
+               'sprite_sheet_key'],
            'name_object': 'ai_hoggy',
            'inventory': InventoryState('tomato'),
            'maze': MazeState('maze_state'),
            'animation': AnimationComponent(),
            'orientation': OrientationComponent('horizontal', 'right'),
-           'movable': MovableComponent('ai_hoggy_move', 24),
+           'movable': MovableComponent(
+               'ai_hoggy_move', settings.AI_HOGGY_STARTING_STATS['speed']),
            'ai': AIComponent()
            })
     ai_hoggy.get_state('MAZE').reset_edge_visits(
@@ -276,17 +282,17 @@ def handle_keys(event):
         return "MOUSEBUTTONUP"
     if event.type in [KEYDOWN, KEYUP]:
         return "player-movement"
-    if event.type == AI_HOGGY_MOVE:
+    # if event.type == AI_HOGGY_MOVE:
         # print("AI HOGGY MOVE EVENT HAPPENING")
-        if not GAME.ai_hoggy.get_state('MAZE').end:
-            pass
-            # GAME.current_maze.step_for_sprite(
-            # GAME.ai_hoggy)
-    if event.type == RELOADED_EVENT:
+        # if not GAME.ai_hoggy.get_state('MAZE').end:
+        # pass
+        # GAME.current_maze.step_for_sprite(
+        # GAME.ai_hoggy)
+    # if event.type == RELOADED_EVENT:
         # print("RELOADED EVENT HAPPENING")
         # when the reload timer runs out, reset it
         # print("reloading")
-        pygame.time.set_timer(RELOADED_EVENT, 0)
+        # pygame.time.set_timer(RELOADED_EVENT, 0)
     return "no-action"
 
 
@@ -317,8 +323,6 @@ def game_loop():
         mousex, mousey = pygame.mouse.get_pos()
         if not GAME.ai_hoggy_reached_exit_vertex():
             GAME.set_destination_ai_hoggy()
-        # if not GAME.ai_hoggy_reached_exit_vertex():
-            # GAME.calculate_value_function()
         if len(events) == 0:
             events.append("no-action")
         for event in events:

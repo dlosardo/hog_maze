@@ -1,5 +1,5 @@
 import pygame
-from hog_maze.settings import sprite_sheet_dict
+from hog_maze.settings import SPRITE_SHEET_DICT
 
 
 class ActorObjectGroup(pygame.sprite.Group):
@@ -34,10 +34,10 @@ class ActorObject(pygame.sprite.Sprite):
         self.name_object = name_object
         self.sprite_sheet_key = sprite_sheet_key
         self.sprite_sheet = pygame.image.load(
-            sprite_sheet_dict[sprite_sheet_key]['image_filename']
+            SPRITE_SHEET_DICT[sprite_sheet_key]['image_filename']
         ).convert_alpha()
-        self.ncols = sprite_sheet_dict[sprite_sheet_key]['ncols']
-        self.animation_delay = sprite_sheet_dict[
+        self.ncols = SPRITE_SHEET_DICT[sprite_sheet_key]['ncols']
+        self.animation_delay = SPRITE_SHEET_DICT[
             sprite_sheet_key].get('animation_delay')
         rect = (0, 0, self.width, self.height)
         self.image = self.sprite_sheet.subsurface(

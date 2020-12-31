@@ -2,19 +2,19 @@ import numpy as np
 from pathlib import Path
 path = Path(__file__).parent / "assets"
 
-WINDOW_WIDTH = 32 * 30  # 640
+SPRITE_SIZE = 32
+WINDOW_WIDTH = SPRITE_SIZE * 30  # 640
 # WINDOW_HEIGHT = 32 * 23  # 480
-WINDOW_HEIGHT = 32 * 22
+WINDOW_HEIGHT = SPRITE_SIZE * 22
 HUD_OFFSETX = 0
-HUD_OFFSETY = 32 * 2
+HUD_OFFSETY = SPRITE_SIZE * 2
 FPS = 30  # frames per second setting
 IS_DEBUG = True
 
 HOGGY_ANIMATION_DELAY = 45
-# MAZE_SEED = 10
 MAZE_SEED = 11
 
-sprite_sheet_dict = {0: {'image_filename':
+SPRITE_SHEET_DICT = {0: {'image_filename':
                          "{}/hoggy_spritesheet_2.png".format(path),
                          'ncols': 4,
                          'animation_delay': HOGGY_ANIMATION_DELAY},
@@ -28,17 +28,24 @@ sprite_sheet_dict = {0: {'image_filename':
                          'animation_delay': 400}
                      }
 
-maze_starting_state = {
+HOGGY_STARTING_STATS = {"speed": 6,
+                        "sprite_sheet_key": 0}
+
+AI_HOGGY_STARTING_STATS = {"speed": 12,
+                           "sprite_sheet_key": 0}
+
+TOMATO_STATE = {
+    'height': SPRITE_SIZE,
+    'width': SPRITE_SIZE,
+    'sprite_sheet_key': 3
+}
+
+MAZE_STARTING_STATE = {
     'maze_width': 6,
     'maze_height': 6,
+    'wall_scale': 8,
     'area_width': WINDOW_WIDTH,
     'area_height': WINDOW_HEIGHT,
-    'wall_scale': 8,
-    # 'reward_dict': {'exit_reward': 10000,
-    # 'tomato_reward': 10,
-    # 'valid_move_reward': -1,
-    # 'invalid_move_reward': -10
-    # }
     'reward_dict': {'exit_reward': 10,
                     'tomato_reward': 1000,
                     'valid_move_reward': -1,
@@ -46,12 +53,18 @@ maze_starting_state = {
                     }
 }
 
-learning_state = {
+MAZE_WALL_STATE = {
+    "width": SPRITE_SIZE,
+    "height": SPRITE_SIZE * 3,
+    "sprite_sheet_key": 1}
+
+LEARNING_STATE = {
     'alpha': 0.3,
     'gamma': 0.9,
     'epsilon': 0.0
 }
-max_alg = True
+
+MAX_ALG = True
 
 WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)

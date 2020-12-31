@@ -14,6 +14,10 @@ class MazeState(HogMazeState):
         self.rewards = 0
         self.end = False
 
+    def get_current_vertex(self, maze_game):
+        return maze_game.vertex_from_x_y(self.owner.x,
+                                         self.owner.y)
+
     def reset_edge_visits(self, edges):
         for edge in edges:
             self.edge_visits[edge] = False

@@ -15,6 +15,7 @@ class MazeGame(object):
     SOUTH = 1
     EAST = 2
     WEST = 3
+    dir_dict = {0: 'TOP', 1: 'BOTTOM', 2: 'RIGHT', 3: 'LEFT'}
 
     def __init__(self, maze_width=4, maze_height=3,
                  area_width=640, area_height=480,
@@ -58,9 +59,10 @@ class MazeGame(object):
     def horizontal_wall(self, x, y):
         horizontal_wall = actor_obj.ActorObject(
             **{'x': x, 'y': y,
-               'width': 32,
-               'height': 96,
-               'sprite_sheet_key': 1,
+               'width': settings.MAZE_WALL_STATE['width'],
+               'height': settings.MAZE_WALL_STATE['height'],
+               'sprite_sheet_key': settings.MAZE_WALL_STATE[
+                   'sprite_sheet_key'],
                'name_object': 'maze_wall'
                })
         topleft = horizontal_wall.rect.topleft
@@ -78,9 +80,10 @@ class MazeGame(object):
     def vertical_wall(self, x, y):
         vertical_wall = actor_obj.ActorObject(
             **{'x': x, 'y': y,
-               'width': 32,
-               'height': 96,
-               'sprite_sheet_key': 1,
+               'width': settings.MAZE_WALL_STATE['width'],
+               'height': settings.MAZE_WALL_STATE['height'],
+               'sprite_sheet_key': settings.MAZE_WALL_STATE[
+                   'sprite_sheet_key'],
                'name_object': 'maze_wall'
                })
         topleft = vertical_wall.rect.topleft
@@ -174,13 +177,10 @@ class MazeGame(object):
         action_probs = pi_a_s[vertex.name]
         action = index_from_prob_dist(action_probs)
         if vertex.is_exit_vertex:
-            dir_dict = {0: 'TOP', 1: 'BOTTOM', 2: 'RIGHT', 3: 'LEFT'}
-            if dir_dict[action] == self.maze_graph.exit_direction:
+            if self.dir_dict[action] == self.maze_graph.exit_direction:
                 point = self.exit_coords_for_vertex(vertex, sprite)
                 sprite.get_state('MAZE').end = True
                 return point
-        print("State: {}; Action: {}".format(vertex.name,
-                                             action))
         next_vertex = self.maze_graph.adjacent_vertex(vertex, action)
         (x_dest,
          y_dest) = self.topleft_sprite_center_in_vertex(

@@ -32,22 +32,22 @@ class Game():
             {'HUD': actor_obj.ActorObjectGroup(
                 'HUD')})
         self.current_maze = None
-        self.reset_maze(**settings.maze_starting_state)
+        self.reset_maze(**settings.MAZE_STARTING_STATE)
         self.hud = pygame.Surface([settings.WINDOW_WIDTH,
                                    settings.HUD_OFFSETY]
                                   ).convert()
         self.hud_rect = self.hud.get_rect()
         self.set_hud()
         self.is_paused = False
-        self.max_alg = settings.max_alg
+        self.max_alg = settings.MAX_ALG
         self.action_space = 4
         self.actions = [MazeGame.NORTH,
                         MazeGame.SOUTH,
                         MazeGame.EAST,
                         MazeGame.WEST]
-        self.alpha = settings.learning_state['alpha']
-        self.gamma = settings.learning_state['gamma']
-        self.epsilon = settings.learning_state['epsilon']
+        self.alpha = settings.LEARNING_STATE['alpha']
+        self.gamma = settings.LEARNING_STATE['gamma']
+        self.epsilon = settings.LEARNING_STATE['epsilon']
         self.recalc = False
 
     @property
@@ -106,18 +106,18 @@ class Game():
     def calculate_value_function(self):
         self.ri_obj.set_rewards_table(
             self.current_maze.maze_graph.set_rewards_table,
-            settings.maze_starting_state['reward_dict'])
+            settings.MAZE_STARTING_STATE['reward_dict'])
         self.ri_obj.set_pi_a_s(self.current_maze.maze_graph.get_pi_a_s)
         # self.ri_obj.set_state_trans_matrix()
         # self.ri_obj.set_rewards_matrix()
         self.ri_obj.initialize_value_function()
-        self.ri_obj.value_iteration_2()
+        self.ri_obj.value_iteration()
         # self.ri_obj.policy_iteration()
 
     def update_value_function(self):
         self.ri_obj.set_rewards_table(
             self.current_maze.maze_graph.set_rewards_table,
-            settings.maze_starting_state['reward_dict'])
+            settings.MAZE_STARTING_STATE['reward_dict'])
         # self.ri_obj.set_pi_a_s(self.current_maze.maze_graph.get_pi_a_s)
         # self.ri_obj.theta = 0.001
         self.ri_obj.policy_iteration()
@@ -140,9 +140,6 @@ class Game():
                 *self.ai_hoggy.coords)
             next_dest = self.current_maze.next_dest_from_pi_a_s(
                 self.ri_obj.pi_a_s, current_vertex, self.ai_hoggy)
-            # next_dest = self.current_maze.next_dest_from_value_matrix(
-            # self.ri_obj.V, current_vertex, self.ai_hoggy,
-            # self.max_alg, self.epsilon)
             self.ai_hoggy.get_component('AI').destination = next_dest
 
     def ai_hoggy_reached_exit_vertex(self):
@@ -167,7 +164,6 @@ class Game():
             self.current_maze.maze_walls)
         self.place_tomatoes()
         if self.current_objects['AI_HOGGY']:
-            print("SET AI HOGGY")
             self.ai_hoggy.get_state(
                 'MAZE').reset_maze_state(
                     self.current_maze.maze_graph.edges)
@@ -184,8 +180,11 @@ class Game():
         if len(cubby_vertices) > 0:
             for cubby_vertex in cubby_vertices:
                 tomato = actor_obj.ActorObject(
-                    **{'x': 0, 'y': 0, 'height': 32, 'width': 32,
-                       'sprite_sheet_key': 3,
+                    **{'x': 0, 'y': 0,
+                       'height': settings.TOMATO_STATE['height'],
+                       'width': settings.TOMATO_STATE['width'],
+                       'sprite_sheet_key':
+                       settings.TOMATO_STATE['sprite_sheet_key'],
                        'name_object': 'tomato',
                        'animation': AnimationComponent(is_animating=True),
                        'pickupable': PickupableComponent('tomato')
@@ -193,14 +192,15 @@ class Game():
                 x, y = self.current_maze.topleft_sprite_center_in_vertex(
                     cubby_vertex, tomato)
                 tomato.set_pos(x, y)
-                # print("ADDING TOMATO TO VERTEX {}".format(cubby_vertex))
                 cubby_vertex.has_tomato = True
                 self.current_objects['PICKUPS'].add(tomato)
 
     def set_hud(self):
         tomato = actor_obj.ActorObject(
-            **{'x': 10, 'y': 10, 'height': 32, 'width': 32,
-               'sprite_sheet_key': 3,
+            **{'x': 10, 'y': 10,
+               'height': settings.TOMATO_STATE['height'],
+               'width': settings.TOMATO_STATE['width'],
+               'sprite_sheet_key': settings.TOMATO_STATE['sprite_sheet_key'],
                'in_hud': True,
                'name_object': 'hud_tomato'
                })
