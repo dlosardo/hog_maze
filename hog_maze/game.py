@@ -1,8 +1,9 @@
 import pygame
 import hog_maze.settings as settings
+from hog_maze.util.util_draw import draw_text
 import hog_maze.actor_obj as actor_obj
 from hog_maze.maze.maze_game import MazeGame
-from hog_maze.maze.ri_learning import RILearning
+from hog_maze.maze.maze import MazeDirections
 from hog_maze.components.pickupable_component import PickupableComponent
 from hog_maze.components.animation_component import AnimationComponent
 
@@ -29,16 +30,20 @@ class Game():
             {'HUD': actor_obj.ActorObjectGroup(
                 'HUD')})
         self.current_maze = None
-        self.reset_maze(**settings.maze_starting_state)
+        self.reset_maze(**settings.MAZE_STARTING_STATE)
         self.hud = pygame.Surface([settings.WINDOW_WIDTH,
                                    settings.HUD_OFFSETY]
                                   ).convert()
         self.hud_rect = self.hud.get_rect()
         self.set_hud()
         self.is_paused = False
-        self.alpha = 0.3
-        self.gamma = 0.9
-        self.epsilon = 0.1
+        self.max_alg = settings.MAX_ALG
+        self.maze_state_changed = False
+        self.action_space = 4
+        self.actions = [MazeDirections.NORTH,
+                        MazeDirections.SOUTH,
+                        MazeDirections.EAST,
+                        MazeDirections.WEST]
 
     @property
     def main_player(self):
@@ -58,70 +63,68 @@ class Game():
         self.current_objects['AI_HOGGY'].add(
             ai_hoggy_sprite)
 
-    def set_ri_object(self):
-        self.ri_obj = RILearning(
-            self.epsilon, self.alpha, self.gamma,
-            self.current_maze.maze_width*self.current_maze.maze_height,
-            len(self.actions), self.actions)
-        self.ri_obj.set_rewards_table(
-            self.current_maze.maze_graph.set_rewards_table,
-            settings.maze_starting_state['reward_dict'])
-        self.ri_obj.set_state_trans_matrix()
-        self.ri_obj.set_rewards_matrix()
-        self.ri_obj.initialize_value_function()
-        self.ri_obj.value_function()
-        self.print_maze_path()
-        self.set_path_for_ai_hoggy()
-
-    def set_path_for_ai_hoggy(self):
-        self.current_maze.path_from_value_matrix(
-            self.ri_obj.V, self.ri_obj.states, self.ai_hoggy)
-        next_dest = self.ai_hoggy.get_state('MAZE').path.get()
-        self.ai_hoggy.get_component('AI').destination = next_dest
+    def ai_hoggy_reached_exit_vertex(self):
+        return self.ai_hoggy.get_state('MAZE').end
 
     def reset_maze(self, maze_width, maze_height,
                    area_width, area_height,
-                   wall_scale, starting_vertex_name=0,
-                   reward_dict=None):
+                   wall_scale, starting_vertex_name=None,
+                   entrance_direction=MazeDirections.WEST,
+                   exit_direction=MazeDirections.EAST, seed=None
+                   ):
         if self.current_maze:
             self.current_maze.reset()
-            self.main_player.x = self.main_player.start_x
-            self.main_player.y = self.main_player.start_y
         else:
-            self.current_maze = MazeGame(maze_width, maze_height,
-                                         area_width, area_height,
-                                         wall_scale, reward_dict)
+            self.current_maze = MazeGame(
+                maze_width=maze_width, maze_height=maze_height,
+                area_width=area_width, area_height=area_height,
+                wall_scale=wall_scale, entrance_direction=entrance_direction,
+                exit_direction=exit_direction, seed=seed)
+        if starting_vertex_name is None:
+            starting_vertex_name = self.current_maze.generate_starting_vertex()
         self.current_maze.set_maze(starting_vertex_name)
         self.current_objects['PICKUPS'].empty()
         self.current_objects['MAZE_WALLS'].empty()
         self.current_objects['MAZE_WALLS'].add(
             self.current_maze.maze_walls)
         self.place_tomatoes()
-        self.action_space = 4
-        self.actions = [MazeGame.NORTH,
-                        MazeGame.SOUTH,
-                        MazeGame.EAST,
-                        MazeGame.WEST]
+        if self.main_player:
+            starting_vertex = self.current_maze.maze_graph.start_vertex
+            (x, y) = self.current_maze.topleft_sprite_center_in_vertex(
+                starting_vertex, self.main_player)
+            print("SETTING HOGGY AGAIN: X {} Y {}".format(x, y))
+            self.main_player.set_pos(x, y)
         if self.current_objects['AI_HOGGY']:
-            print("SET AI HOGGY")
-            self.ai_hoggy.get_state(
-                'MAZE').reset_maze_state(
+            starting_vertex = self.current_maze.maze_graph.start_vertex
+            (x, y) = self.current_maze.topleft_sprite_center_in_vertex(
+                starting_vertex, self.ai_hoggy)
+            self.ai_hoggy.get_state('MAZE').reset_maze_state(
                     self.current_maze.maze_graph.edges)
-            self.ai_hoggy.set_pos(
-                self.ai_hoggy.start_x, self.ai_hoggy.start_y)
+            self.ai_hoggy.set_pos(x, y)
             self.ai_hoggy.get_state(
                 'MAZE').current_vertex = self.current_maze.vertex_from_x_y(
-                    self.ai_hoggy.x, self.ai_hoggy.y)
+                    x, y)
             self.ai_hoggy.get_state('INVENTORY').reset_inventory_state()
-            self.set_ri_object()
+            self.ai_hoggy.reward_func = (self.current_maze.maze_graph.
+                                         set_rewards_table)
+            self.ai_hoggy.pi_a_s_func = self.current_maze.maze_graph.get_pi_a_s
+            self.ai_hoggy.get_component('RILEARNING').recalc = True
+            self.ai_hoggy.get_component('RILEARNING').update()
+            next_dest = self.current_maze.next_dest_from_pi_a_s(
+                self.ai_hoggy.get_component('RILEARNING').pi_a_s,
+                starting_vertex, self.ai_hoggy)
+            self.ai_hoggy.get_component('AI').destination = next_dest
 
     def place_tomatoes(self):
         cubby_vertices = self.current_maze.maze_graph.all_cubby_vertices()
         if len(cubby_vertices) > 0:
             for cubby_vertex in cubby_vertices:
                 tomato = actor_obj.ActorObject(
-                    **{'x': 0, 'y': 0, 'height': 32, 'width': 32,
-                       'sprite_sheet_key': 3,
+                    **{'x': 0, 'y': 0,
+                       'height': settings.TOMATO_STATE['height'],
+                       'width': settings.TOMATO_STATE['width'],
+                       'sprite_sheet_key':
+                       settings.TOMATO_STATE['sprite_sheet_key'],
                        'name_object': 'tomato',
                        'animation': AnimationComponent(is_animating=True),
                        'pickupable': PickupableComponent('tomato')
@@ -129,18 +132,27 @@ class Game():
                 x, y = self.current_maze.topleft_sprite_center_in_vertex(
                     cubby_vertex, tomato)
                 tomato.set_pos(x, y)
-                # print("ADDING TOMATO TO VERTEX {}".format(cubby_vertex))
                 cubby_vertex.has_tomato = True
                 self.current_objects['PICKUPS'].add(tomato)
 
     def set_hud(self):
         tomato = actor_obj.ActorObject(
-            **{'x': 10, 'y': 10, 'height': 32, 'width': 32,
-               'sprite_sheet_key': 3,
+            **{'x': 10, 'y': 10,
+               'height': settings.TOMATO_STATE['height'],
+               'width': settings.TOMATO_STATE['width'],
+               'sprite_sheet_key': settings.TOMATO_STATE['sprite_sheet_key'],
                'in_hud': True,
                'name_object': 'hud_tomato'
                })
         self.current_objects['HUD'].add(tomato)
+
+    def draw_to_hud(self):
+        ntomatoes = self.main_player.get_state(
+              'INVENTORY').inventory.get('tomato')
+        draw_text(self.hud, "x",
+                  24, 55, 28, settings.ORANGE)
+        draw_text(self.hud, "{}".format(ntomatoes),
+                  40, 75, 30, settings.ORANGE)
 
     def print_maze_path(self):
         maze_path = ""

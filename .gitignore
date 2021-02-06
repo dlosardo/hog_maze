@@ -47,3 +47,4 @@ webapp/static/data
 webapp/migrations
 migrations
 .ipynb_checkpoints/
+hog_maze/maze/ri_learning.py

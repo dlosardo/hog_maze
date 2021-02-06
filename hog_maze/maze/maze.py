@@ -1,6 +1,15 @@
 import random
 from collections import defaultdict
+import numpy as np
 from hog_maze.util.stack import StackArray
+from hog_maze.maze.ri_learning import RILearningState
+
+
+class MazeDirections():
+    NORTH = 0
+    SOUTH = 1
+    EAST = 2
+    WEST = 3
 
 
 class Vertex(object):
@@ -108,7 +117,7 @@ class MazeGraph(object):
         self.end_vertex = None
         self.entrance_direction = None
         self.exit_direction = None
-        self.stack = StackArray(200)
+        self.stack = StackArray(2000)
         self.maze_layout = [[None] * self.maze_width
                             for i in range(0, self.maze_height)
                             ]
@@ -119,80 +128,93 @@ class MazeGraph(object):
             for col in range(0, self.maze_width):
                 vertex = self.maze_layout[row][col]
                 rewards_table[vertex.name] = {
-                    a: [self.next_state_for_action(a, vertex, reward_dict)]
+                    a: self.next_state_for_action(a, vertex, reward_dict)
                     for a in actions
                 }
         return rewards_table
 
+    def prob_action_given_state(self, vertex, action):
+        return 0.25
+
+    def get_pi_a_s(self, actions):
+        pi_a_s = np.zeros([
+            self.maze_width * self.maze_height, len(actions)
+        ])
+        for a in actions:
+            for row in range(0, self.maze_height):
+                for col in range(0, self.maze_width):
+                    vertex = self.maze_layout[row][col]
+                    p = self.prob_action_given_state(vertex, a)
+                    pi_a_s[vertex.name][a] = p
+        return pi_a_s
+
     def found_exit(self, a, vertex):
-        if (a == 0 and vertex.is_exit_vertex and
-            self.exit_direction == 'TOP') or (
-                a == 1 and vertex.is_exit_vertex and self.exit_direction ==
-                'BOTTOM') or (
-                    a == 2 and vertex.is_exit_vertex and self.exit_direction ==
-                    'RIGHT') or (
-                        a == 3 and vertex.is_exit_vertex and
-                        self.exit_direction == 'LEFT'):
+        if not vertex.is_exit_vertex:
+            return False
+        if (a == MazeDirections.NORTH and
+            self.exit_direction == MazeDirections.NORTH
+            ) or (
+                a == MazeDirections.SOUTH and
+                self.exit_direction == MazeDirections.SOUTH
+            ) or (
+                a == MazeDirections.EAST and
+                self.exit_direction == MazeDirections.EAST
+            ) or (
+                a == MazeDirections.WEST and
+                self.exit_direction == MazeDirections.WEST):
             return True
         else:
             return False
 
     def valid_move(self, a, vertex):
-        if ((a == 0)
+        if ((a == MazeDirections.NORTH)
             and (not vertex.north_wall)
             and (not (
-                vertex.is_entrance_vertex and self.exit_direction == 'TOP')
+                vertex.is_entrance_vertex and self.entrance_direction ==
+                MazeDirections.NORTH)
             )) or (
-                (a == 1)
+                (a == MazeDirections.SOUTH)
                 and (not vertex.south_wall)
                 and (not (
                     vertex.is_entrance_vertex
-                    and self.entrance_direction == 'BOTTOM'))
+                    and self.entrance_direction == MazeDirections.SOUTH))
             ) or (
-                (a == 2)
+                (a == MazeDirections.EAST)
                 and (not vertex.east_wall)
                 and (not (
                     vertex.is_entrance_vertex
-                    and self.entrance_direction == 'RIGHT'))
+                    and self.entrance_direction == MazeDirections.EAST))
             ) or (
-                (a == 3)
+                (a == MazeDirections.WEST)
                 and (not vertex.west_wall)
                 and (not (
                     vertex.is_entrance_vertex
-                    and self.entrance_direction == 'LEFT'))):
+                    and self.entrance_direction == MazeDirections.WEST))):
             return True
         else:
             return False
 
     def next_state_for_action(self, action, vertex, reward_dict):
-        # print("Vertex: {} Action: {}".format(
-        #     vertex, action))
         if self.found_exit(action, vertex):
-            return (0.25,
-                    vertex.name,
-                    reward_dict['exit_reward'],
-                    # 10000.,
-                    True)
+            return RILearningState(prob=1,
+                                   next_state=vertex.name,
+                                   reward=reward_dict['exit_reward'],
+                                   end=True)
         elif self.valid_move(action, vertex):
-            return (0.25,
-                    self.adjacent_vertex(vertex, action).name,
-                    reward_dict['valid_move_reward'],
-                    # -1,
-                    False)
+            next_vertex = self.adjacent_vertex(vertex, action)
+            if next_vertex.has_tomato:
+                reward = reward_dict['tomato_reward']
+            else:
+                reward = reward_dict['valid_move_reward']
+            return RILearningState(prob=1,
+                                   next_state=next_vertex.name,
+                                   reward=reward,
+                                   end=False)
         else:
-            return (0.25,
-                    vertex.name,
-                    reward_dict['invalid_move_reward'],
-                    # -1,
-                    False)
-
-    def reward_for_action(self, a, vertex):
-        if self.found_exit(a, vertex):
-            return 100
-        elif self.valid_move(a, vertex):
-            return -1
-        else:
-            return -5
+            return RILearningState(prob=1,
+                                   next_state=vertex.name,
+                                   reward=reward_dict['invalid_move_reward'],
+                                   end=False)
 
     def set_maze_layout(self):
         c = 0
@@ -301,6 +323,55 @@ class MazeGraph(object):
                 return True
         return False
 
+    def any_left_unvisited_vertices(self):
+        for i in range(0, self.maze_height):
+            if not self.maze_layout[i][0].is_visited:
+                return True
+        return False
+
+    def any_bottom_unvisited_vertices(self):
+        for i in range(0, self.maze_height):
+            if not self.maze_layout[self.maze_height - 1][i].is_visited:
+                return True
+        return False
+
+    def any_top_unvisited_vertices(self):
+        for i in range(0, self.maze_height):
+            if not self.maze_layout[0][i].is_visited:
+                return True
+        return False
+
+    def west_vertices(self):
+        return [self.maze_layout[0][i]
+                for i in range(0, self.maze_height)]
+
+    def east_vertices(self):
+        return [self.maze_layout[self.maze_width - 1][i]
+                for i in range(0, self.maze_height)]
+
+    def north_vertices(self):
+        return [self.maze_layout[0][i]
+                for i in range(0, self.maze_width)]
+
+    def south_vertices(self):
+        return [self.maze_layout[self.maze_height - 1][i]
+                for i in range(0, self.maze_width)]
+
+    def west_state_names(self):
+        return [i * self.maze_width
+                for i in range(0, self.maze_height)]
+
+    def east_state_names(self):
+        return [((i + 1) * self.maze_width) - 1
+                for i in range(0, self.maze_height)]
+
+    def north_state_names(self):
+        return list(range(0, self.maze_width))
+
+    def south_state_names(self):
+        return [(self.maze_height * self.maze_width) - (self.maze_width - i)
+                for i in range(0, self.maze_width)]
+
     def is_cubby_vertex(self, vertex):
         neighbors_with_wall = 0
         for neighbor in self.graph[vertex]:
@@ -318,8 +389,22 @@ class MazeGraph(object):
                 cubby_vertices.append(vertex)
         return cubby_vertices
 
+    def exit_direction_check(self, exit_direction):
+        if exit_direction == MazeDirections.NORTH:
+            return self.any_top_unvisited_vertices
+        elif exit_direction == MazeDirections.SOUTH:
+            return self.any_bottom_unvisited_vertices
+        elif exit_direction == MazeDirections.EAST:
+            return self.any_right_unvisited_vertices
+        elif exit_direction == MazeDirections.WEST:
+            return self.any_left_unvisited_vertices
+
     def create_maze_path(self, start_vertex_name,
-                         entrance_direction='LEFT'):
+                         entrance_direction=MazeDirections.WEST,
+                         exit_direction=MazeDirections.EAST,
+                         seed=None):
+        if seed is not None:
+            random.seed(seed)
         self.entrance_direction = entrance_direction
         current_vertex = self.get_vertex_by_name(start_vertex_name)
         self.start_vertex = current_vertex
@@ -336,37 +421,45 @@ class MazeGraph(object):
                 current_vertex.is_visited = True
                 self.edges[frozenset(
                     [previous_vertex, current_vertex])] = MazeGraph.EMPTY
-                if not self.any_right_unvisited_vertices():
+                if not self.exit_direction_check(exit_direction)():
                     if self.end_vertex is None:
                         self.end_vertex = current_vertex
                         current_vertex.is_exit_vertex = True
-                        rc = random.choice(range(0, 2))
-                        if current_vertex.is_right_vertex:
-                            if current_vertex.is_top_vertex:
-                                self.exit_direction = ['RIGHT', 'TOP'][rc]
-                            elif current_vertex.is_bottom_vertex:
-                                self.exit_direction = ['RIGHT', 'BOTTOM'][rc]
-                            else:
-                                self.exit_direction = 'RIGHT'
-                        if current_vertex.is_left_vertex:
-                            if current_vertex.is_top_vertex:
-                                self.exit_direction = ['LEFT', 'TOP'][rc]
-                            elif current_vertex.is_bottom_vertex:
-                                self.exit_direction = ['LEFT', 'BOTTOM'][rc]
-                            else:
-                                self.exit_direction = 'LEFT'
-                        if not self.exit_direction:
-                            if current_vertex.is_bottom_vertex:
-                                self.exit_direction = 'BOTTOM'
-                            elif current_vertex.is_top_vertex:
-                                self.exit_direction = 'TOP'
+                        self.exit_direction = exit_direction
                 if not self.any_unvisited_vertices():
                     if self.end_vertex is None:
                         self.end_vertex = current_vertex
                         current_vertex.is_exit_vertex = True
+                        self.exit_direction = exit_direction
             if not self.stack.is_empty():
                 current_vertex = self.stack.pop()
         self.set_vertex_cell_walls()
+
+    def set_exit_direction(self, current_vertex):
+        rc = random.choice(range(0, 2))
+        if current_vertex.is_right_vertex:
+            if current_vertex.is_top_vertex:
+                self.exit_direction = [MazeDirections.EAST,
+                                       MazeDirections.NORTH][rc]
+            elif current_vertex.is_bottom_vertex:
+                self.exit_direction = [MazeDirections.EAST,
+                                       MazeDirections.SOUTH][rc]
+            else:
+                self.exit_direction = MazeDirections.EAST
+        if current_vertex.is_left_vertex:
+            if current_vertex.is_top_vertex:
+                self.exit_direction = [MazeDirections.WEST,
+                                       MazeDirections.NORTH][rc]
+            elif current_vertex.is_bottom_vertex:
+                self.exit_direction = [MazeDirections.WEST,
+                                       MazeDirections.SOUTH][rc]
+            else:
+                self.exit_direction = MazeDirections.WEST
+        if not self.exit_direction:
+            if current_vertex.is_bottom_vertex:
+                self.exit_direction = MazeDirections.SOUTH
+            elif current_vertex.is_top_vertex:
+                self.exit_direction = MazeDirections.NORTH
 
     def set_vertex_cell_walls(self):
         for row in range(0, self.maze_height):
@@ -437,6 +530,132 @@ class MazeGraph(object):
                 maze_layout_display += " "
             maze_layout_display += "\n"
         print(maze_layout_display)
+
+    def adjacent_vertex(self, vertex, action):
+        if action == 0:
+            return self.maze_layout[vertex.row - 1][vertex.col]
+        elif action == 1:
+            return self.maze_layout[vertex.row + 1][vertex.col]
+        elif action == 2:
+            return self.maze_layout[vertex.row][vertex.col + 1]
+        elif action == 3:
+            return self.maze_layout[vertex.row][vertex.col - 1]
+
+    def east_structure_from_vertex(self, vertex):
+        if vertex.col < (self.maze_width - 1):
+            vertex_right = self.maze_layout[vertex.row][vertex.col + 1]
+            edge = frozenset([vertex, vertex_right])
+            return self.edges[edge]
+        elif vertex.col == (self.maze_width - 1):
+            if vertex.is_gateway:
+                return MazeGraph.EMPTY
+            else:
+                return MazeGraph.VWALL
+
+    def west_structure_from_vertex(self, vertex):
+        if vertex.col < (self.maze_width - 1):
+            if vertex.col == 0:
+                if not vertex.is_gateway:
+                    return MazeGraph.VWALL
+                else:
+                    return MazeGraph.EMPTY
+            else:
+                vertex_left = self.maze_layout[vertex.row][vertex.col - 1]
+                edge = frozenset([vertex, vertex_left])
+                return self.edges[edge]
+
+    def north_structure_from_vertex(self, vertex):
+        if vertex.row == 0:
+            if vertex.is_gateway and not vertex.is_side_vertex:
+                return MazeGraph.EMPTY
+            else:
+                return MazeGraph.HWALL
+        if vertex.row > 0:
+            vertex_above = self.maze_layout[vertex.row - 1][vertex.col]
+            edge = frozenset([vertex, vertex_above])
+            return self.edges[edge]
+
+    def south_structure_from_vertex(self, vertex):
+        if vertex.row > 0:
+            if vertex.row == (self.maze_height - 1):
+                if vertex.is_gateway and not vertex.is_side_vertex:
+                    return MazeGraph.EMPTY
+                else:
+                    return MazeGraph.HWALL
+        if vertex.row != (self.maze_height - 1):
+            vertex_below = self.maze_layout[vertex.row + 1][vertex.col]
+            edge = frozenset([vertex, vertex_below])
+            return self.edges[edge]
+
+    def get_cell_walls(self, row, col):
+        vertex = self.maze_layout[row][col]
+        if col < (self.maze_width - 1):
+            vertex_right = self.maze_layout[row][col + 1]
+            edge = frozenset([vertex, vertex_right])
+            structure_right_of_vertex = self.edges[edge]
+            if col == 0:
+                if (
+                    (vertex.is_entrance_vertex
+                     and self.entrance_direction == MazeDirections.WEST)
+                ) or (
+                    vertex.is_exit_vertex and self.exit_direction ==
+                    MazeDirections.WEST
+                ):
+                    structure_left_of_vertex = MazeGraph.EMPTY
+                else:
+                    structure_left_of_vertex = MazeGraph.VWALL
+            else:
+                vertex_left = self.maze_layout[row][col - 1]
+                edge = frozenset([vertex, vertex_left])
+                structure_left_of_vertex = self.edges[edge]
+        if col == (self.maze_width - 1):
+            if (
+                (vertex.is_entrance_vertex
+                 and self.entrance_direction == MazeDirections.EAST)
+            ) or (
+                vertex.is_exit_vertex and self.exit_direction ==
+                MazeDirections.EAST
+            ):
+                structure_right_of_vertex = MazeGraph.EMPTY
+            else:
+                structure_right_of_vertex = MazeGraph.VWALL
+            vertex_left = self.maze_layout[row][col - 1]
+            edge = frozenset([vertex, vertex_left])
+            structure_left_of_vertex = self.edges[edge]
+        if row == 0:
+            if (
+                vertex.is_entrance_vertex and self.entrance_direction ==
+                MazeDirections.NORTH
+            ) or (
+                vertex.is_exit_vertex and self.exit_direction ==
+                MazeDirections.NORTH
+            ):
+                structure_above_vertex = MazeGraph.EMPTY
+            else:
+                structure_above_vertex = MazeGraph.HWALL
+        if row > 0:
+            vertex_above = self.maze_layout[row - 1][col]
+            edge = frozenset([vertex, vertex_above])
+            structure_above_vertex = self.edges[edge]
+            if row == (self.maze_height - 1):
+                if (
+                    (vertex.is_entrance_vertex
+                     and self.entrance_direction == MazeDirections.SOUTH)
+                ) or (
+                    vertex.is_exit_vertex and self.exit_direction ==
+                    MazeDirections.SOUTH
+                ):
+                    structure_below_vertex = MazeGraph.EMPTY
+                else:
+                    structure_below_vertex = MazeGraph.HWALL
+        if row != (self.maze_height - 1):
+            vertex_below = self.maze_layout[row + 1][col]
+            edge = frozenset([vertex, vertex_below])
+            structure_below_vertex = self.edges[edge]
+        return (structure_left_of_vertex,
+                structure_right_of_vertex,
+                structure_above_vertex,
+                structure_below_vertex)
 
     def print_maze_path(self):
         maze_path = ""
@@ -531,124 +750,3 @@ class MazeGraph(object):
         maze_path += bottom_layer
         top_layer += maze_path
         print(top_layer)
-
-    def adjacent_vertex(self, vertex, action):
-        if action == 0:
-            return self.maze_layout[vertex.row - 1][vertex.col]
-        elif action == 1:
-            return self.maze_layout[vertex.row + 1][vertex.col]
-        elif action == 2:
-            return self.maze_layout[vertex.row][vertex.col + 1]
-        elif action == 3:
-            return self.maze_layout[vertex.row][vertex.col - 1]
-
-    def east_structure_from_vertex(self, vertex):
-        if vertex.col < (self.maze_width - 1):
-            vertex_right = self.maze_layout[vertex.row][vertex.col + 1]
-            edge = frozenset([vertex, vertex_right])
-            return self.edges[edge]
-        elif vertex.col == (self.maze_width - 1):
-            if vertex.is_gateway:
-                return MazeGraph.EMPTY
-            else:
-                return MazeGraph.VWALL
-
-    def west_structure_from_vertex(self, vertex):
-        if vertex.col < (self.maze_width - 1):
-            if vertex.col == 0:
-                if not vertex.is_gateway:
-                    return MazeGraph.VWALL
-                else:
-                    return MazeGraph.EMPTY
-            else:
-                vertex_left = self.maze_layout[vertex.row][vertex.col - 1]
-                edge = frozenset([vertex, vertex_left])
-                return self.edges[edge]
-
-    def north_structure_from_vertex(self, vertex):
-        if vertex.row == 0:
-            if vertex.is_gateway and not vertex.is_side_vertex:
-                return MazeGraph.EMPTY
-            else:
-                return MazeGraph.HWALL
-        if vertex.row > 0:
-            vertex_above = self.maze_layout[vertex.row - 1][vertex.col]
-            edge = frozenset([vertex, vertex_above])
-            return self.edges[edge]
-
-    def south_structure_from_vertex(self, vertex):
-        if vertex.row > 0:
-            if vertex.row == (self.maze_height - 1):
-                if vertex.is_gateway and not vertex.is_side_vertex:
-                    return MazeGraph.EMPTY
-                else:
-                    return MazeGraph.HWALL
-        if vertex.row != (self.maze_height - 1):
-            vertex_below = self.maze_layout[vertex.row + 1][vertex.col]
-            edge = frozenset([vertex, vertex_below])
-            return self.edges[edge]
-
-    def get_cell_walls(self, row, col):
-        vertex = self.maze_layout[row][col]
-        if col < (self.maze_width - 1):
-            vertex_right = self.maze_layout[row][col + 1]
-            edge = frozenset([vertex, vertex_right])
-            structure_right_of_vertex = self.edges[edge]
-            if col == 0:
-                if (
-                    (vertex.is_entrance_vertex
-                     and self.entrance_direction == 'LEFT')
-                ) or (
-                    vertex.is_exit_vertex and self.exit_direction == 'LEFT'
-                ):
-                    structure_left_of_vertex = MazeGraph.EMPTY
-                else:
-                    structure_left_of_vertex = MazeGraph.VWALL
-            else:
-                vertex_left = self.maze_layout[row][col - 1]
-                edge = frozenset([vertex, vertex_left])
-                structure_left_of_vertex = self.edges[edge]
-        if col == (self.maze_width - 1):
-            if (
-                (vertex.is_entrance_vertex
-                 and self.entrance_direction == 'RIGHT')
-            ) or (
-                vertex.is_exit_vertex and self.exit_direction == 'RIGHT'
-            ):
-                structure_right_of_vertex = MazeGraph.EMPTY
-            else:
-                structure_right_of_vertex = MazeGraph.VWALL
-            vertex_left = self.maze_layout[row][col - 1]
-            edge = frozenset([vertex, vertex_left])
-            structure_left_of_vertex = self.edges[edge]
-        if row == 0:
-            if (
-                vertex.is_entrance_vertex and self.entrance_direction == 'TOP'
-            ) or (
-                vertex.is_exit_vertex and self.exit_direction == 'TOP'
-            ):
-                structure_above_vertex = MazeGraph.EMPTY
-            else:
-                structure_above_vertex = MazeGraph.HWALL
-        if row > 0:
-            vertex_above = self.maze_layout[row - 1][col]
-            edge = frozenset([vertex, vertex_above])
-            structure_above_vertex = self.edges[edge]
-            if row == (self.maze_height - 1):
-                if (
-                    (vertex.is_entrance_vertex
-                     and self.entrance_direction == 'BOTTOM')
-                ) or (
-                    vertex.is_exit_vertex and self.exit_direction == 'BOTTOM'
-                ):
-                    structure_below_vertex = MazeGraph.EMPTY
-                else:
-                    structure_below_vertex = MazeGraph.HWALL
-        if row != (self.maze_height - 1):
-            vertex_below = self.maze_layout[row + 1][col]
-            edge = frozenset([vertex, vertex_below])
-            structure_below_vertex = self.edges[edge]
-        return (structure_left_of_vertex,
-                structure_right_of_vertex,
-                structure_above_vertex,
-                structure_below_vertex)

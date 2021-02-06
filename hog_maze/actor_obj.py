@@ -1,5 +1,5 @@
 import pygame
-from hog_maze.settings import sprite_sheet_dict
+from hog_maze.settings import SPRITE_SHEET_DICT
 
 
 class ActorObjectGroup(pygame.sprite.Group):
@@ -25,6 +25,7 @@ class ActorObject(pygame.sprite.Sprite):
                  player_input=None,
                  pickupable=None,
                  ai=None,
+                 rilearning=None,
                  inventory=None,
                  maze=None
                  ):
@@ -34,10 +35,10 @@ class ActorObject(pygame.sprite.Sprite):
         self.name_object = name_object
         self.sprite_sheet_key = sprite_sheet_key
         self.sprite_sheet = pygame.image.load(
-            sprite_sheet_dict[sprite_sheet_key]['image_filename']
+            SPRITE_SHEET_DICT[sprite_sheet_key]['image_filename']
         ).convert_alpha()
-        self.ncols = sprite_sheet_dict[sprite_sheet_key]['ncols']
-        self.animation_delay = sprite_sheet_dict[
+        self.ncols = SPRITE_SHEET_DICT[sprite_sheet_key]['ncols']
+        self.animation_delay = SPRITE_SHEET_DICT[
             sprite_sheet_key].get('animation_delay')
         rect = (0, 0, self.width, self.height)
         self.image = self.sprite_sheet.subsurface(
@@ -68,7 +69,8 @@ class ActorObject(pygame.sprite.Sprite):
             'PLAYER_INPUT': None,
             'CLICKABLE': None,
             'PICKUPABLE': None,
-            'AI': None}
+            'AI': None,
+            'RILEARNING': None}
         self.component_dict['MOVABLE'] = movable
         if self.component_dict['MOVABLE']:
             self.component_dict['MOVABLE'].owner = self
@@ -91,6 +93,9 @@ class ActorObject(pygame.sprite.Sprite):
         self.component_dict['AI'] = ai
         if self.component_dict['AI']:
             self.component_dict['AI'].owner = self
+        self.component_dict['RILEARNING'] = rilearning
+        if self.component_dict['RILEARNING']:
+            self.component_dict['RILEARNING'].owner = self
 
     def has_component(self, component):
         return self.component_dict[component] is not None
@@ -123,3 +128,13 @@ class ActorObject(pygame.sprite.Sprite):
     @y.setter
     def y(self, y):
         self.rect.y = y
+
+    @property
+    def coords(self):
+        return (self.x,
+                self.y)
+
+    @coords.setter
+    def coords(self, x, y):
+        self.x = x
+        self.y = y

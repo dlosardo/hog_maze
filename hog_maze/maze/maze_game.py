@@ -3,20 +3,20 @@ import random
 import pygame
 import numpy as np
 import hog_maze.settings as settings
-from hog_maze.util.util import Point
-from hog_maze.maze.maze import MazeGraph
+from hog_maze.settings import r31
+from hog_maze.util.util import (
+    Point, index_from_prob_dist, draw_from_dist_1)
+from hog_maze.maze.maze import MazeGraph, MazeDirections
 import hog_maze.actor_obj as actor_obj
 
 
 class MazeGame(object):
-    NORTH = 0
-    SOUTH = 1
-    EAST = 2
-    WEST = 3
 
     def __init__(self, maze_width=4, maze_height=3,
                  area_width=640, area_height=480,
-                 wall_scale=6, reward_dict=None):
+                 wall_scale=6, entrance_direction=MazeDirections.WEST,
+                 exit_direction=MazeDirections.EAST, seed=None,
+                 reward_dict=None):
         self.maze_width = maze_width
         self.maze_height = maze_height
         self.maze_graph = MazeGraph(self.maze_width, self.maze_height)
@@ -25,6 +25,12 @@ class MazeGame(object):
         self.cell_width = self.area_width / self.maze_width
         self.cell_height = self.area_height / self.maze_height
         self.wall_scale = wall_scale
+        self.entrance_direction = entrance_direction
+        self.exit_direction = exit_direction
+        if seed is None:
+            self.seed = None
+        else:
+            self.seed = seed
         if reward_dict is None:
             self.reward_dict = {'exit_reward': 10000,
                                 'valid_move_reward': -1,
@@ -46,8 +52,26 @@ class MazeGame(object):
 
     def set_maze(self, start_vertex_name):
         self.maze_graph.set_graph()
-        self.maze_graph.create_maze_path(start_vertex_name)
+        self.maze_graph.create_maze_path(
+            start_vertex_name,
+            entrance_direction=self.entrance_direction,
+            exit_direction=self.exit_direction,
+            seed=self.seed)
         self.set_maze_walls()
+
+    def generate_starting_vertex(self):
+        if self.entrance_direction == MazeDirections.NORTH:
+            vertices = self.maze_graph.north_state_names()
+        elif self.entrance_direction == MazeDirections.SOUTH:
+            vertices = self.maze_graph.south_state_names()
+        elif self.entrance_direction == MazeDirections.EAST:
+            vertices = self.maze_graph.east_state_names()
+        elif self.entrance_direction == MazeDirections.WEST:
+            vertices = self.maze_graph.west_state_names()
+        if self.seed:
+            random.seed(self.seed)
+        rc = random.choice(range(0, len(vertices)))
+        return vertices[rc]
 
     def set_rewards_table(self, actions):
         return self.maze_graph.set_rewards_table(
@@ -56,9 +80,10 @@ class MazeGame(object):
     def horizontal_wall(self, x, y):
         horizontal_wall = actor_obj.ActorObject(
             **{'x': x, 'y': y,
-               'width': 32,
-               'height': 96,
-               'sprite_sheet_key': 1,
+               'width': settings.MAZE_WALL_STATE['width'],
+               'height': settings.MAZE_WALL_STATE['height'],
+               'sprite_sheet_key': settings.MAZE_WALL_STATE[
+                   'sprite_sheet_key'],
                'name_object': 'maze_wall'
                })
         topleft = horizontal_wall.rect.topleft
@@ -76,9 +101,10 @@ class MazeGame(object):
     def vertical_wall(self, x, y):
         vertical_wall = actor_obj.ActorObject(
             **{'x': x, 'y': y,
-               'width': 32,
-               'height': 96,
-               'sprite_sheet_key': 1,
+               'width': settings.MAZE_WALL_STATE['width'],
+               'height': settings.MAZE_WALL_STATE['height'],
+               'sprite_sheet_key': settings.MAZE_WALL_STATE[
+                   'sprite_sheet_key'],
                'name_object': 'maze_wall'
                })
         topleft = vertical_wall.rect.topleft
@@ -107,16 +133,16 @@ class MazeGame(object):
                 centery - sprite.height/2)
 
     def exit_coords_for_vertex(self, vertex, sprite):
-        if self.maze_graph.exit_direction == 'RIGHT':
+        if self.maze_graph.exit_direction == MazeDirections.EAST:
             x = vertex.col * self.cell_width + self.cell_width
             y = vertex.row * self.cell_height + self.cell_height/2
-        elif self.maze_graph.exit_direction == 'TOP':
+        elif self.maze_graph.exit_direction == MazeDirections.NORTH:
             x = vertex.col * self.cell_width + self.cell_width/2
             y = vertex.row * self.cell_height
-        elif self.maze_graph.exit_direction == 'BOTTOM':
+        elif self.maze_graph.exit_direction == MazeDirections.SOUTH:
             x = vertex.col * self.cell_width + self.cell_width/2
             y = vertex.row * self.cell_height + self.cell_height
-        elif self.maze_graph.exit_direction == 'LEFT':
+        elif self.maze_graph.exit_direction == MazeDirections.WEST:
             x = vertex.col * self.cell_width
             y = vertex.row * self.cell_height + self.cell_height/2
         return Point(x - sprite.width/2, y - sprite.height/2)
@@ -168,14 +194,53 @@ class MazeGame(object):
         sprite.get_state(
             'MAZE').current_vertex = state_vertex
 
+    def next_dest_from_pi_a_s(self, pi_a_s, vertex, sprite):
+        action_probs = pi_a_s[vertex.name]
+        action = index_from_prob_dist(action_probs)
+        if vertex.is_exit_vertex:
+            if action == self.maze_graph.exit_direction:
+                point = self.exit_coords_for_vertex(vertex, sprite)
+                sprite.get_state('MAZE').end = True
+                return point
+        next_vertex = self.maze_graph.adjacent_vertex(vertex, action)
+        (x_dest,
+         y_dest) = self.topleft_sprite_center_in_vertex(
+             next_vertex, sprite)
+        return Point(x_dest, y_dest)
+
+    def next_dest_from_value_matrix(self, V, vertex, sprite,
+                                    max_alg, epsilon):
+        valid_actions = self.valid_actions_for_vertex(vertex)
+        if vertex.is_exit_vertex:
+            if random.uniform(0, 1) < .5:
+                point = self.exit_coords_for_vertex(vertex, sprite)
+                sprite.get_state('MAZE').end = True
+                return point
+        if random.uniform(0, 1) < epsilon:
+            print("Exploring space...")
+            rc = random.choice(range(0, len(valid_actions)))
+            state = self.maze_graph.adjacent_vertex(
+                vertex, valid_actions[rc]).name
+        else:
+            vals = [(self.maze_graph.adjacent_vertex(vertex, a).name,
+                     V[self.maze_graph.adjacent_vertex(vertex, a).name][0])
+                    for a in valid_actions]
+            if max_alg:
+                max_value = np.max([v[1] for v in vals])
+                state = [v[0] for v in vals
+                         if v[1] == max_value][0]
+            else:
+                state = draw_from_dist_1(vals)
+        next_vertex = self.maze_graph.get_vertex_by_name(state)
+        (x_dest,
+         y_dest) = self.topleft_sprite_center_in_vertex(
+             next_vertex, sprite)
+        return Point(x_dest, y_dest)
+
     def path_from_value_matrix(self, V, states, sprite):
         state = 0
         end = False
 
-        def format_float(num):
-            return np.format_float_positional(round(num, 2))
-
-        r31 = np.vectorize(format_float)
         print(r31(V.reshape(self.maze_width, self.maze_height)))
 
         while not end:
@@ -201,20 +266,36 @@ class MazeGame(object):
         actions = []
         if (not vertex.north_wall) and not (
              vertex.is_entrance_vertex and
-             self.maze_graph.entrance_direction == 'TOP'):
-            actions.append(MazeGame.NORTH)
+             self.maze_graph.entrance_direction == MazeDirections.NORTH
+        ) and not (
+            vertex.is_exit_vertex and
+            self.maze_graph.exit_direction == MazeDirections.NORTH
+        ):
+            actions.append(MazeDirections.NORTH)
         if (not vertex.south_wall) and not (
              vertex.is_entrance_vertex and
-             self.maze_graph.entrance_direction == 'BOTTOM'):
-            actions.append(MazeGame.SOUTH)
+             self.maze_graph.entrance_direction == MazeDirections.SOUTH
+        ) and not (
+            vertex.is_exit_vertex and
+            self.maze_graph.exit_direction == MazeDirections.SOUTH
+        ):
+            actions.append(MazeDirections.SOUTH)
         if (not vertex.east_wall) and not (
              vertex.is_entrance_vertex and
-             self.maze_graph.entrance_direction == 'RIGHT'):
-            actions.append(MazeGame.EAST)
+             self.maze_graph.entrance_direction == MazeDirections.EAST
+        ) and not (
+            vertex.is_exit_vertex and
+            self.maze_graph.exit_direction == MazeDirections.EAST
+        ):
+            actions.append(MazeDirections.EAST)
         if (not vertex.west_wall) and not (
              vertex.is_entrance_vertex and
-             self.maze_graph.entrance_direction == 'LEFT'):
-            actions.append(MazeGame.WEST)
+             self.maze_graph.entrance_direction == MazeDirections.WEST
+        ) and not (
+            vertex.is_exit_vertex and
+            self.maze_graph.exit_direction == MazeDirections.WEST
+        ):
+            actions.append(MazeDirections.WEST)
         return actions
 
     def step_for_sprite_action(self, sprite, action):
@@ -224,7 +305,7 @@ class MazeGame(object):
         if action in valid_actions:
             if action == MazeGame.NORTH:
                 if (vertex.is_exit_vertex) and (
-                     self.maze_graph.exit_direction == 'TOP'):
+                     self.maze_graph.exit_direction == MazeDirections.NORTH):
                     sprite.get_state('MAZE').rewards += 100
                     sprite.get_state('MAZE').end = True
                     # print("HOGGY FOUND EXIT!")
@@ -234,7 +315,7 @@ class MazeGame(object):
                         vertex.row - 1][vertex.col]
             elif action == MazeGame.SOUTH:
                 if (vertex.is_exit_vertex) and (
-                     self.maze_graph.exit_direction == 'BOTTOM'):
+                     self.maze_graph.exit_direction == MazeDirections.SOUTH):
                     sprite.get_state('MAZE').rewards += 100
                     sprite.get_state('MAZE').end = True
                     # print("HOGGY FOUND EXIT!")
@@ -244,7 +325,7 @@ class MazeGame(object):
                         vertex.row + 1][vertex.col]
             elif action == MazeGame.EAST:
                 if (vertex.is_exit_vertex) and (
-                     self.maze_graph.exit_direction == 'RIGHT'):
+                     self.maze_graph.exit_direction == MazeDirections.EAST):
                     sprite.get_state('MAZE').rewards += 100
                     sprite.get_state('MAZE').end = True
                     # print("HOGGY FOUND EXIT!")
@@ -254,7 +335,7 @@ class MazeGame(object):
                         vertex.row][vertex.col + 1]
             elif action == MazeGame.WEST:
                 if (vertex.is_exit_vertex) and (
-                     self.maze_graph.exit_direction == 'LEFT'):
+                     self.maze_graph.exit_direction == MazeDirections.WEST):
                     sprite.get_state('MAZE').rewards += 100
                     sprite.get_state('MAZE').end = True
                     # print("HOGGY FOUND EXIT!")
