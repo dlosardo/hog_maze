@@ -1,4 +1,5 @@
 import numpy as np
+from hog_maze.maze.maze import MazeDirections
 from pathlib import Path
 path = Path(__file__).parent / "assets"
 
@@ -9,10 +10,10 @@ WINDOW_HEIGHT = SPRITE_SIZE * 22
 HUD_OFFSETX = 0
 HUD_OFFSETY = SPRITE_SIZE * 2
 FPS = 30  # frames per second setting
-IS_DEBUG = True
+IS_DEBUG = False
 
 HOGGY_ANIMATION_DELAY = 45
-MAZE_SEED = 11
+MAZE_SEED = None
 
 SPRITE_SHEET_DICT = {0: {'image_filename':
                          "{}/hoggy_spritesheet_2.png".format(path),
@@ -32,13 +33,14 @@ HOGGY_STARTING_STATS = {"speed": 6,
                         "sprite_sheet_key": 0}
 
 AI_HOGGY_STARTING_STATS = {"speed": 12,
-                           "sprite_sheet_key": 0}
-
-TOMATO_STATE = {
-    'height': SPRITE_SIZE,
-    'width': SPRITE_SIZE,
-    'sprite_sheet_key': 3
-}
+                           "sprite_sheet_key": 0,
+                           'gamma': 0.9,
+                           'reward_dict': {'exit_reward': 10,
+                                           'tomato_reward': 1000,
+                                           'valid_move_reward': -1,
+                                           'invalid_move_reward': -10000
+                                           }
+                           }
 
 MAZE_STARTING_STATE = {
     'maze_width': 6,
@@ -46,11 +48,16 @@ MAZE_STARTING_STATE = {
     'wall_scale': 8,
     'area_width': WINDOW_WIDTH,
     'area_height': WINDOW_HEIGHT,
-    'reward_dict': {'exit_reward': 10,
-                    'tomato_reward': 1000,
-                    'valid_move_reward': -1,
-                    'invalid_move_reward': -10000
-                    }
+    'entrance_direction': MazeDirections.SOUTH,
+    'starting_vertex_name': None,
+    'exit_direction': MazeDirections.NORTH,
+    'seed': MAZE_SEED
+}
+
+TOMATO_STATE = {
+    'height': SPRITE_SIZE,
+    'width': SPRITE_SIZE,
+    'sprite_sheet_key': 3
 }
 
 MAZE_WALL_STATE = {

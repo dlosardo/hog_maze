@@ -3,10 +3,9 @@ from pygame.locals import (
     QUIT, KEYDOWN, KEYUP, K_UP, K_DOWN,
     K_LEFT, K_RIGHT, MOUSEMOTION,
     MOUSEBUTTONUP, K_SPACE, K_d, K_p,
-    K_v, K_c
+    K_c
 )
 import hog_maze.settings as settings
-from hog_maze.settings import r31
 import hog_maze.actor_obj as actor_obj
 from hog_maze.game import Game
 from hog_maze.components.animation_component import AnimationComponent
@@ -15,6 +14,7 @@ from hog_maze.components.movable_component import MovableComponent
 from hog_maze.components.clickable_component import ClickableComponent
 from hog_maze.components.orientation_component import OrientationComponent
 from hog_maze.components.ai_component import AIComponent
+from hog_maze.components.rilearning_component import RILearningComponent
 from hog_maze.states.inventory_state import InventoryState
 from hog_maze.states.maze_state import MazeState
 import hog_maze.debug.debuginfo as debuginfo
@@ -26,10 +26,8 @@ MOVE_AI_HOGGY_TIMEOUT = 1000
 AI_HOGGY_MOVE = pygame.USEREVENT + 1
 RELOADED_EVENT = pygame.USEREVENT + 2
 
-COMPONENTS = ['PLAYER_INPUT', 'AI', 'MOVABLE', 'ORIENTATION',
+COMPONENTS = ['RILEARNING', 'PLAYER_INPUT', 'AI', 'MOVABLE', 'ORIENTATION',
               'ANIMATION', 'CLICKABLE', 'PICKUPABLE']
-
-settings.IS_DEBUG = True
 
 
 def update_components(dt, mousex, mousey, event_type):
@@ -111,13 +109,23 @@ def hoggy_collision_tomatoes(sprite, colliding_pickups):
             print("pick up tomato")
             vertex = GAME.current_maze.vertex_from_x_y(
                 pickup.x, pickup.y)
-            # print("VERTEX WITH TOMATO: {}".format(vertex))
             vertex.has_tomato = False
             vertex.sprite_with_tomato = sprite
-            if sprite.name_object == 'ai_hoggy':
-                GAME.recalc = True
-                # GAME.update_value_function()
-                # GAME.calculate_value_function()
+            for sp in GAME.current_objects['AI_HOGGY']:
+                sp.get_component('RILEARNING').recalc = True
+
+
+def collision_ai_destinations(sprite_group):
+    for sprite in sprite_group:
+        if not sprite.get_state('MAZE').end:
+            if sprite.get_component('AI').reached_destination():
+                if sprite.has_component('RILEARNING'):
+                    current_vertex = GAME.current_maze.vertex_from_x_y(
+                        *sprite.coords)
+                    next_dest = GAME.current_maze.next_dest_from_pi_a_s(
+                        sprite.get_component('RILEARNING').pi_a_s,
+                        current_vertex, sprite)
+                    sprite.get_component('AI').destination = next_dest
 
 
 def handle_collisions():
@@ -130,6 +138,8 @@ def handle_collisions():
     collision_one_to_many(GAME.current_objects[
         'AI_HOGGY'], GAME.current_objects[
             'PICKUPS'], hoggy_collision_tomatoes)
+    collision_ai_destinations(GAME.current_objects[
+        'AI_HOGGY'])
 
 
 def game_initialize():
@@ -158,8 +168,7 @@ def game_initialize():
 def game_new():
     global GAME
     GAME = Game()
-    starting_vertex = GAME.current_maze.maze_graph.maze_layout[
-        0][0]
+    starting_vertex = GAME.current_maze.maze_graph.start_vertex
     (x, y) = GAME.current_maze.center_for_vertex(starting_vertex)
     print("CENTER X: {}, CENTER Y: {}".format(x, y))
     main_player = actor_obj.ActorObject(
@@ -205,17 +214,31 @@ def game_new():
            'orientation': OrientationComponent('horizontal', 'right'),
            'movable': MovableComponent(
                'ai_hoggy_move', settings.AI_HOGGY_STARTING_STATS['speed']),
-           'ai': AIComponent()
+           'ai': AIComponent(),
+           'rilearning':
+           RILearningComponent(
+               name_instance="ril_ai_hoggy",
+               gamma=settings.AI_HOGGY_STARTING_STATS['gamma'],
+               nstates=GAME.current_maze.maze_width * GAME.
+               current_maze.maze_height,
+               action_space=GAME.action_space, actions=GAME.actions,
+               reward_dict=settings.AI_HOGGY_STARTING_STATS['reward_dict'],
+               reward_func=GAME.current_maze.maze_graph.set_rewards_table,
+               pi_a_s_func=GAME.current_maze.maze_graph.get_pi_a_s)
            })
     ai_hoggy.get_state('MAZE').reset_edge_visits(
         GAME.current_maze.maze_graph.edges)
-    ai_hoggy.get_state(
-        'MAZE').current_vertex = starting_vertex
+    ai_hoggy.get_state('MAZE').current_vertex = starting_vertex
     starting_vertex.increment_sprite_visit_count(ai_hoggy)
+    ai_hoggy.get_component('RILEARNING').update()
+    next_dest = GAME.current_maze.next_dest_from_pi_a_s(
+        ai_hoggy.get_component('RILEARNING').pi_a_s,
+        starting_vertex, ai_hoggy)
+    ai_hoggy.get_component('AI').destination = next_dest
     GAME.main_player = main_player
     GAME.ai_hoggy = ai_hoggy
-    GAME.set_ri_object()
     # GAME.ai_hoggy.get_component('AI').destination = GAME.main_player
+
     GAME.current_objects['UI_BUTTONS'].add(randomize_button)
 
 
@@ -253,19 +276,6 @@ def handle_keys(event):
             GAME.is_paused = True
         if event.key == K_c:
             GAME.toggle_alg()
-            alg_dict = {True: 'Max', False: 'Dist'}
-            print("Alg: {}".format(alg_dict[GAME.max_alg]))
-        if event.key == K_v:
-            v_matrix = GAME.ri_obj.V.reshape(GAME.current_maze.maze_width,
-                                             GAME.current_maze.maze_height
-                                             ).copy()
-            # norms = np.linalg.norm(v_matrix, axis=None, keepdims=True)
-            # v_matrix /= norms
-            # v_matrix *= 100000000
-            # print(r31(GAME.ri_obj.V.reshape(GAME.current_maze.maze_width,
-            # GAME.current_maze.maze_height
-            # )))
-            print(r31(v_matrix))
             alg_dict = {True: 'Max', False: 'Dist'}
             print("Alg: {}".format(alg_dict[GAME.max_alg]))
     if event.type == MOUSEMOTION:
@@ -321,8 +331,6 @@ def game_loop():
         dt = FPS_CLOCK.get_time()
         events = pygame.event.get()
         mousex, mousey = pygame.mouse.get_pos()
-        if not GAME.ai_hoggy_reached_exit_vertex():
-            GAME.set_destination_ai_hoggy()
         if len(events) == 0:
             events.append("no-action")
         for event in events:
