@@ -2,8 +2,7 @@ import pygame
 from pygame.locals import (
     QUIT, KEYDOWN, KEYUP, K_UP, K_DOWN,
     K_LEFT, K_RIGHT, MOUSEMOTION,
-    MOUSEBUTTONUP, K_SPACE, K_d, K_p,
-    K_c
+    MOUSEBUTTONUP, K_SPACE, K_d, K_p
 )
 import hog_maze.settings as settings
 import hog_maze.actor_obj as actor_obj
@@ -274,10 +273,6 @@ def handle_keys(event):
             settings.IS_DEBUG = not settings.IS_DEBUG
         if event.key == K_p:
             GAME.is_paused = True
-        if event.key == K_c:
-            GAME.toggle_alg()
-            alg_dict = {True: 'Max', False: 'Dist'}
-            print("Alg: {}".format(alg_dict[GAME.max_alg]))
     if event.type == MOUSEMOTION:
         mousex, mousey = event.pos
         DEBUGM.update(mousex, mousey)

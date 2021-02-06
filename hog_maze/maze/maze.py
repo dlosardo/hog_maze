@@ -426,13 +426,11 @@ class MazeGraph(object):
                         self.end_vertex = current_vertex
                         current_vertex.is_exit_vertex = True
                         self.exit_direction = exit_direction
-                        # self.set_exit_direction(current_vertex)
                 if not self.any_unvisited_vertices():
                     if self.end_vertex is None:
                         self.end_vertex = current_vertex
                         current_vertex.is_exit_vertex = True
                         self.exit_direction = exit_direction
-                        # self.set_exit_direction(current_vertex)
             if not self.stack.is_empty():
                 current_vertex = self.stack.pop()
         self.set_vertex_cell_walls()
