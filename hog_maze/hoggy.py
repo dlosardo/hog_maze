@@ -16,6 +16,9 @@ from hog_maze.components.ai_component import AIComponent
 from hog_maze.components.rilearning_component import RILearningComponent
 from hog_maze.states.inventory_state import InventoryState
 from hog_maze.states.maze_state import MazeState
+from hog_maze.collision import (
+    collision_one_to_many, hoggy_collision_walls, collision_many_to_many
+)
 import hog_maze.debug.debuginfo as debuginfo
 import hog_maze.debug.debugmouse as debugmouse
 import hog_maze.debug.debugevent as debugevent
@@ -47,7 +50,7 @@ def update_components(dt, mousex, mousey, event_type):
 def draw_game():
     WORLD.fill(settings.WHITE)
     GAME.current_maze.image.fill(settings.WHITE)
-    GAME.hud.fill(settings.BLACK)
+    HUD.fill(settings.BLACK)
 
     for name, obj in GAME.current_objects.items():
         for sprite in obj:
@@ -55,10 +58,10 @@ def draw_game():
                 GAME.current_maze.image.blit(sprite.image,
                                              (sprite.x, sprite.y))
             else:
-                GAME.hud.blit(sprite.image, (sprite.x, sprite.y))
-                GAME.draw_to_hud()
+                HUD.blit(sprite.image, (sprite.x, sprite.y))
+                GAME.draw_to_hud(HUD)
     WORLD.blit(GAME.current_maze.image, (0, settings.HUD_OFFSETY))
-    WORLD.blit(GAME.hud, (0, 0))
+    WORLD.blit(HUD, (0, 0))
 
 
 def draw_debug(dt):
@@ -75,30 +78,6 @@ def reset_maze(**kwargs):
     GAME.reset_maze(**kwargs)
 
 
-def collision_one_to_many(single_group, sprite_group,
-                          callback):
-    # collision detection between single_group and sprite_group
-    colliding_shapes = pygame.sprite.spritecollide(
-        single_group.sprite, sprite_group, False)
-    callback(single_group.sprite, colliding_shapes)
-
-
-def hoggy_collision_walls(sprite, colliding_shapes):
-    for shape in colliding_shapes:
-        # Moving right; Hit the left side of the wall
-        if sprite.get_component('MOVABLE').velocity['x'] > 0:
-            sprite.rect.right = shape.rect.left
-        # Moving left; Hit right side of the wall
-        elif sprite.get_component('MOVABLE').velocity['x'] < 0:
-            sprite.rect.left = shape.rect.right
-        # Moving up; Hit bottom of the wall
-        elif sprite.get_component('MOVABLE').velocity['y'] < 0:
-            sprite.rect.top = shape.rect.bottom
-        # Moving down; Hit top of the wall
-        elif sprite.get_component('MOVABLE').velocity['y'] > 0:
-            sprite.rect.bottom = shape.rect.top
-
-
 def hoggy_collision_tomatoes(sprite, colliding_pickups):
     for pickup in colliding_pickups:
         if pickup.get_component('PICKUPABLE').name_instance == "tomato":
@@ -110,8 +89,25 @@ def hoggy_collision_tomatoes(sprite, colliding_pickups):
                 pickup.x, pickup.y)
             vertex.has_tomato = False
             vertex.sprite_with_tomato = sprite
-            for sp in GAME.current_objects['AI_HOGGY']:
+            for sp in GAME.current_objects['AI_HOGS']:
                 sp.get_component('RILEARNING').recalc = True
+
+
+def set_next_dest_from_pi_a_s(sprite):
+    next_dest = GAME.current_maze.next_dest_from_pi_a_s(
+        sprite.get_component('RILEARNING').pi_a_s,
+        sprite)
+    sprite.get_component('AI').destination = next_dest
+
+
+def initialize_ai_hog(sprite, starting_vertex):
+    sprite.get_state('MAZE').reset_edge_visits(
+        GAME.current_maze.maze_graph.edges)
+    sprite.get_state('MAZE').current_vertex = starting_vertex
+    starting_vertex.increment_sprite_visit_count(sprite)
+    sprite.get_component('RILEARNING').update()
+    set_next_dest_from_pi_a_s(sprite)
+    GAME.add_ai_hoggy(sprite)
 
 
 def collision_ai_destinations(sprite_group):
@@ -119,12 +115,7 @@ def collision_ai_destinations(sprite_group):
         if not sprite.get_state('MAZE').end:
             if sprite.get_component('AI').reached_destination():
                 if sprite.has_component('RILEARNING'):
-                    current_vertex = GAME.current_maze.vertex_from_x_y(
-                        *sprite.coords)
-                    next_dest = GAME.current_maze.next_dest_from_pi_a_s(
-                        sprite.get_component('RILEARNING').pi_a_s,
-                        current_vertex, sprite)
-                    sprite.get_component('AI').destination = next_dest
+                    set_next_dest_from_pi_a_s(sprite)
 
 
 def handle_collisions():
@@ -134,15 +125,16 @@ def handle_collisions():
     collision_one_to_many(GAME.current_objects[
         'MAIN_PLAYER'], GAME.current_objects[
             'PICKUPS'], hoggy_collision_tomatoes)
-    collision_one_to_many(GAME.current_objects[
-        'AI_HOGGY'], GAME.current_objects[
+    collision_many_to_many(GAME.current_objects[
+        'AI_HOGS'], GAME.current_objects[
             'PICKUPS'], hoggy_collision_tomatoes)
     collision_ai_destinations(GAME.current_objects[
-        'AI_HOGGY'])
+        'AI_HOGS'])
 
 
 def game_initialize():
     global WORLD
+    global HUD
     global FPS_CLOCK
     global DEBUGSCREEN
     global DEBUGEVENT
@@ -160,6 +152,8 @@ def game_initialize():
                                      settings.HUD_OFFSETX,
                                      settings.WINDOW_HEIGHT +
                                      settings.HUD_OFFSETY))
+    HUD = pygame.Surface([settings.WINDOW_WIDTH,
+                          settings.HUD_OFFSETY]).convert()
     FPS_CLOCK = pygame.time.Clock()
     # pygame.time.set_timer(AI_HOGGY_MOVE, MOVE_AI_HOGGY_TIMEOUT)
 
@@ -225,19 +219,36 @@ def game_new():
                reward_func=GAME.current_maze.maze_graph.set_rewards_table,
                pi_a_s_func=GAME.current_maze.maze_graph.get_pi_a_s)
            })
-    ai_hoggy.get_state('MAZE').reset_edge_visits(
-        GAME.current_maze.maze_graph.edges)
-    ai_hoggy.get_state('MAZE').current_vertex = starting_vertex
-    starting_vertex.increment_sprite_visit_count(ai_hoggy)
-    ai_hoggy.get_component('RILEARNING').update()
-    next_dest = GAME.current_maze.next_dest_from_pi_a_s(
-        ai_hoggy.get_component('RILEARNING').pi_a_s,
-        starting_vertex, ai_hoggy)
-    ai_hoggy.get_component('AI').destination = next_dest
-    GAME.main_player = main_player
-    GAME.ai_hoggy = ai_hoggy
-    # GAME.ai_hoggy.get_component('AI').destination = GAME.main_player
+    ai_hoggy_1 = actor_obj.ActorObject(
+        **{'x': x - (settings.SPRITE_SIZE / 2),
+           'y': y - (settings.SPRITE_SIZE / 2),
+           'height': settings.SPRITE_SIZE, 'width': settings.SPRITE_SIZE,
+           'sprite_sheet_key': settings.AI_HOGGY_STARTING_STATS[
+               'sprite_sheet_key'],
+           'name_object': 'ai_hoggy_1',
+           'inventory': InventoryState('tomato'),
+           'maze': MazeState('maze_state'),
+           'animation': AnimationComponent(),
+           'orientation': OrientationComponent('horizontal', 'right'),
+           'movable': MovableComponent(
+               'ai_hoggy_move', 10),
+           'ai': AIComponent(),
+           'rilearning':
+           RILearningComponent(
+               name_instance="ril_ai_hoggy",
+               gamma=settings.AI_HOGGY_STARTING_STATS['gamma'],
+               nstates=GAME.current_maze.maze_width * GAME.
+               current_maze.maze_height,
+               action_space=GAME.action_space, actions=GAME.actions,
+               reward_dict=settings.AI_HOGGY_STARTING_STATS['reward_dict'],
+               reward_func=GAME.current_maze.maze_graph.set_rewards_table,
+               pi_a_s_func=GAME.current_maze.maze_graph.get_pi_a_s)
+           })
+    initialize_ai_hog(ai_hoggy, starting_vertex)
+    initialize_ai_hog(ai_hoggy_1, starting_vertex)
 
+    GAME.main_player = main_player
+    # GAME.ai_hoggy.get_component('AI').destination = GAME.main_player
     GAME.current_objects['UI_BUTTONS'].add(randomize_button)
 
 
