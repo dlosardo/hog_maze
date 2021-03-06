@@ -11,6 +11,7 @@ import hog_maze.actor_obj as actor_obj
 
 
 class MazeGame(object):
+    maze_game_counter = 0
 
     def __init__(self, maze_width=4, maze_height=3,
                  area_width=640, area_height=480,
@@ -38,7 +39,21 @@ class MazeGame(object):
                                 }
         else:
             self.reward_dict = reward_dict
+        self._id = MazeGame.maze_game_counter
+        MazeGame.maze_game_counter += 1
         self.reset()
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        image = state.pop("image")
+        state["image_string"] = (pygame.image.tostring(image, "RGB"),
+                                 image.get_size())
+        return state
+
+    def __setstate__(self, state):
+        image_string, size = state.pop("image_string")
+        state["image"] = pygame.image.fromstring(image_string, size, "RGB")
+        self.__dict__.update(state)
 
     def reset(self):
         self.game_over = False
@@ -194,7 +209,8 @@ class MazeGame(object):
         sprite.get_state(
             'MAZE').current_vertex = state_vertex
 
-    def next_dest_from_pi_a_s(self, pi_a_s, vertex, sprite):
+    def next_dest_from_pi_a_s(self, pi_a_s, sprite):
+        vertex = self.vertex_from_x_y(*sprite.coords)
         action_probs = pi_a_s[vertex.name]
         action = index_from_prob_dist(action_probs)
         if vertex.is_exit_vertex:

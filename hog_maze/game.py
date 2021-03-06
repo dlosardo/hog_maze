@@ -1,4 +1,3 @@
-import pygame
 import hog_maze.settings as settings
 from hog_maze.util.util_draw import draw_text
 import hog_maze.actor_obj as actor_obj
@@ -10,6 +9,7 @@ from hog_maze.components.animation_component import AnimationComponent
 
 class Game():
     def __init__(self):
+        self.maze_number = 0
         self.current_objects = {}
         self.current_objects.update(
             {'MAIN_PLAYER': actor_obj.ActorObjectGroupSingle(
@@ -24,20 +24,16 @@ class Game():
             {'PICKUPS': actor_obj.ActorObjectGroup(
                 'PICKUP')})
         self.current_objects.update(
-            {'AI_HOGGY': actor_obj.ActorObjectGroupSingle(
-                'AI_HOGGY')})
+            {'AI_HOGS': actor_obj.ActorObjectGroup(
+                'AI_HOGS')})
         self.current_objects.update(
             {'HUD': actor_obj.ActorObjectGroup(
                 'HUD')})
+        self.previous_mazes = {}
         self.current_maze = None
         self.reset_maze(**settings.MAZE_STARTING_STATE)
-        self.hud = pygame.Surface([settings.WINDOW_WIDTH,
-                                   settings.HUD_OFFSETY]
-                                  ).convert()
-        self.hud_rect = self.hud.get_rect()
         self.set_hud()
         self.is_paused = False
-        self.max_alg = settings.MAX_ALG
         self.maze_state_changed = False
         self.action_space = 4
         self.actions = [MazeDirections.NORTH,
@@ -54,17 +50,14 @@ class Game():
         self.current_objects['MAIN_PLAYER'].add(
             main_player_sprite)
 
-    @property
-    def ai_hoggy(self):
-        return self.current_objects['AI_HOGGY'].sprite
+    def get_ai_hoggy(self, ai_hoggy_sprite):
+        for ai_hog in self.current_objects['AI_HOGS']:
+            if ai_hog.name_instance == ai_hoggy_sprite.name_instance:
+                return ai_hog
 
-    @ai_hoggy.setter
-    def ai_hoggy(self, ai_hoggy_sprite):
-        self.current_objects['AI_HOGGY'].add(
+    def add_ai_hoggy(self, ai_hoggy_sprite):
+        self.current_objects['AI_HOGS'].add(
             ai_hoggy_sprite)
-
-    def ai_hoggy_reached_exit_vertex(self):
-        return self.ai_hoggy.get_state('MAZE').end
 
     def reset_maze(self, maze_width, maze_height,
                    area_width, area_height,
@@ -73,6 +66,14 @@ class Game():
                    exit_direction=MazeDirections.EAST, seed=None
                    ):
         if self.current_maze:
+            # try:
+                # self.previous_mazes.update(
+                    # {'MAZE_{}'.format(self.maze_number):
+                    # pickle.dumps(self.current_maze)}
+                # )
+            # except Exception:
+                # import pdb; pdb.set_trace()
+            self.maze_number += 1
             self.current_maze.reset()
         else:
             self.current_maze = MazeGame(
@@ -94,26 +95,27 @@ class Game():
                 starting_vertex, self.main_player)
             print("SETTING HOGGY AGAIN: X {} Y {}".format(x, y))
             self.main_player.set_pos(x, y)
-        if self.current_objects['AI_HOGGY']:
+        if self.current_objects['AI_HOGS']:
             starting_vertex = self.current_maze.maze_graph.start_vertex
-            (x, y) = self.current_maze.topleft_sprite_center_in_vertex(
-                starting_vertex, self.ai_hoggy)
-            self.ai_hoggy.get_state('MAZE').reset_maze_state(
-                    self.current_maze.maze_graph.edges)
-            self.ai_hoggy.set_pos(x, y)
-            self.ai_hoggy.get_state(
-                'MAZE').current_vertex = self.current_maze.vertex_from_x_y(
-                    x, y)
-            self.ai_hoggy.get_state('INVENTORY').reset_inventory_state()
-            self.ai_hoggy.reward_func = (self.current_maze.maze_graph.
-                                         set_rewards_table)
-            self.ai_hoggy.pi_a_s_func = self.current_maze.maze_graph.get_pi_a_s
-            self.ai_hoggy.get_component('RILEARNING').recalc = True
-            self.ai_hoggy.get_component('RILEARNING').update()
-            next_dest = self.current_maze.next_dest_from_pi_a_s(
-                self.ai_hoggy.get_component('RILEARNING').pi_a_s,
-                starting_vertex, self.ai_hoggy)
-            self.ai_hoggy.get_component('AI').destination = next_dest
+            for ai_hoggy in self.current_objects['AI_HOGS']:
+                (x, y) = self.current_maze.topleft_sprite_center_in_vertex(
+                    starting_vertex, ai_hoggy)
+                ai_hoggy.get_state('MAZE').reset_maze_state(
+                        self.current_maze.maze_graph.edges)
+                ai_hoggy.set_pos(x, y)
+                ai_hoggy.get_state(
+                    'MAZE').current_vertex = self.current_maze.vertex_from_x_y(
+                        x, y)
+                ai_hoggy.get_state('INVENTORY').reset_inventory_state()
+                ai_hoggy.reward_func = (self.current_maze.maze_graph.
+                                        set_rewards_table)
+                ai_hoggy.pi_a_s_func = self.current_maze.maze_graph.get_pi_a_s
+                ai_hoggy.get_component('RILEARNING').recalc = True
+                ai_hoggy.get_component('RILEARNING').update()
+                next_dest = self.current_maze.next_dest_from_pi_a_s(
+                    ai_hoggy.get_component('RILEARNING').pi_a_s,
+                    ai_hoggy)
+                ai_hoggy.get_component('AI').destination = next_dest
 
     def place_tomatoes(self):
         cubby_vertices = self.current_maze.maze_graph.all_cubby_vertices()
@@ -146,12 +148,12 @@ class Game():
                })
         self.current_objects['HUD'].add(tomato)
 
-    def draw_to_hud(self):
+    def draw_to_hud(self, hud):
         ntomatoes = self.main_player.get_state(
               'INVENTORY').inventory.get('tomato')
-        draw_text(self.hud, "x",
+        draw_text(hud, "x",
                   24, 55, 28, settings.ORANGE)
-        draw_text(self.hud, "{}".format(ntomatoes),
+        draw_text(hud, "{}".format(ntomatoes),
                   40, 75, 30, settings.ORANGE)
 
     def print_maze_path(self):

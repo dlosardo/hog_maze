@@ -29,10 +29,10 @@ SPRITE_SHEET_DICT = {0: {'image_filename':
                          'animation_delay': 400}
                      }
 
-HOGGY_STARTING_STATS = {"speed": 6,
+HOGGY_STARTING_STATS = {"speed": 12,
                         "sprite_sheet_key": 0}
 
-AI_HOGGY_STARTING_STATS = {"speed": 12,
+AI_HOGGY_STARTING_STATS = {"speed": 8,
                            "sprite_sheet_key": 0,
                            'gamma': 0.9,
                            'reward_dict': {'exit_reward': 10,
@@ -70,8 +70,6 @@ LEARNING_STATE = {
     'gamma': 0.9,
     'epsilon': 0.0
 }
-
-MAX_ALG = True
 
 WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)

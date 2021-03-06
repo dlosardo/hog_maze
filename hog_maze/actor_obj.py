@@ -41,8 +41,7 @@ class ActorObject(pygame.sprite.Sprite):
         self.animation_delay = SPRITE_SHEET_DICT[
             sprite_sheet_key].get('animation_delay')
         rect = (0, 0, self.width, self.height)
-        self.image = self.sprite_sheet.subsurface(
-            rect)
+        self.image = self.sprite_sheet.subsurface(rect)
         self.rect = self.image.get_rect()
         self.start_x = x
         self.start_y = y
@@ -96,6 +95,25 @@ class ActorObject(pygame.sprite.Sprite):
         self.component_dict['RILEARNING'] = rilearning
         if self.component_dict['RILEARNING']:
             self.component_dict['RILEARNING'].owner = self
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        image = state.pop("image")
+        sprite_sheet = state.pop("sprite_sheet")
+        state["image_string"] = (pygame.image.tostring(image, "RGB"),
+                                 image.get_size())
+        state["sprite_sheet_string"] = (pygame.image.tostring(sprite_sheet,
+                                                              "RGB"),
+                                        sprite_sheet.get_size())
+        return state
+
+    def __setstate__(self, state):
+        image_string, size = state.pop("image_string")
+        state["image"] = pygame.image.fromstring(image_string, size, "RGB")
+        sprite_sheet_string, size = state.pop("sprite_sheet_string")
+        state["sprite_sheet"] = pygame.image.fromstring(
+            sprite_sheet_string, size, "RGB")
+        self.__dict__.update(state)
 
     def has_component(self, component):
         return self.component_dict[component] is not None
