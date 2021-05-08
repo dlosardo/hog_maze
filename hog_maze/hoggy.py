@@ -8,6 +8,7 @@ import random
 import hog_maze.settings as settings
 import hog_maze.actor_obj as actor_obj
 from hog_maze.game import Game
+from hog_maze.util.util_draw import draw_text
 from hog_maze.components.animation_component import AnimationComponent
 from hog_maze.components.player_input_component import PlayerInputComponent
 from hog_maze.components.movable_component import MovableComponent
@@ -25,366 +26,584 @@ import hog_maze.debug.debugmouse as debugmouse
 import hog_maze.debug.debugevent as debugevent
 import hog_maze.debug.debugmazestate as debugmazestate
 
-MOVE_AI_HOGGY_TIMEOUT = 1000
-AI_HOGGY_MOVE = pygame.USEREVENT + 1
-RELOADED_EVENT = pygame.USEREVENT + 2
-
 COMPONENTS = ['RILEARNING', 'PLAYER_INPUT', 'AI', 'MOVABLE', 'ORIENTATION',
               'ANIMATION', 'CLICKABLE', 'PICKUPABLE']
 
 
-def update_components(dt, mousex, mousey, event_type):
-    for component in COMPONENTS:
-        for name, obj in GAME.current_objects.items():
-            for sprite in obj:
-                if not sprite.is_dead:
-                    if sprite.has_component(component):
-                        sprite.get_component(component).update(
-                            **{'dt': dt, 'mousex': mousex,
-                               'mousey': mousey,
-                               'event_type': event_type
-                               })
-                if sprite.is_dead:
-                    sprite.kill()
+class Hoggy(object):
 
+    def __init__(self, state):
+        self.game_quit = False
+        self.game_initialize()
+        self.state = state()
+        self.game = Game()
+        self.state.set_game_objects(self.game)
 
-def draw_game():
-    WORLD.fill(settings.WHITE)
-    GAME.current_maze.image.fill(settings.WHITE)
-    HUD.fill(settings.BLACK)
+    def game_initialize(self):
+        pygame.init()
+        self.fps_clock = pygame.time.Clock()
 
-    for name, obj in GAME.current_objects.items():
-        for sprite in obj:
-            if not sprite.in_hud:
-                GAME.current_maze.image.blit(sprite.image,
-                                             (sprite.x, sprite.y))
-            else:
-                HUD.blit(sprite.image, (sprite.x, sprite.y))
-                GAME.draw_to_hud(HUD)
-    WORLD.blit(GAME.current_maze.image, (0, settings.HUD_OFFSETY))
-    WORLD.blit(HUD, (0, 0))
+    def update_components(self, dt, mousex, mousey, event_type):
+        for component in COMPONENTS:
+            for name, obj in self.game.current_objects.items():
+                for sprite in obj:
+                    if not sprite.is_dead:
+                        if sprite.has_component(component):
+                            sprite.get_component(component).update(
+                                **{'dt': dt, 'mousex': mousex,
+                                   'mousey': mousey,
+                                   'event_type': event_type
+                                   })
+                    if sprite.is_dead:
+                        sprite.kill()
 
+    def draw_game(self):
+        self.state.draw_game(self.game)
 
-def draw_debug(dt):
-    for ai_hoggy in GAME.current_objects['AI_HOGS']:
-        DEBUGSCREEN.update(ai_hoggy, dt)
-        # for i, t in enumerate(DEBUGSCREEN.text_list):
-        # WORLD.blit(t, (0, 465 + (i * 30)))
-        WORLD.blit(DEBUGM.text, (0, 400))
-        # WORLD.blit(DEBUGEVENT.text, (0, 440))
-        for i, t in enumerate(DEBUGMAZESTATE.text_list):
-            WORLD.blit(t, (0, 500 + (i * 30)))
+    def draw_debug(self, dt):
+        self.state.draw_debug(self.game, dt)
 
+    def handle_collisions(self):
+        self.state.handle_collisions(self.game)
 
-def reset_maze(**kwargs):
-    GAME.reset_maze(**kwargs)
+    def handle_keys(self, event):
+        action = self.state.handle_keys(self.game, event)
+        return action
 
+    def handle_event_paused(self, event):
+        self.state.handle_event_paused(self.game, event)
 
-def hoggy_collision_tomatoes(sprite, colliding_pickups):
-    for pickup in colliding_pickups:
-        if pickup.get_component('PICKUPABLE').name_instance == "tomato":
-            pickup.get_component('PICKUPABLE').picked_up = True
-            sprite.get_state('INVENTORY').add_item(
-                pickup.get_component('PICKUPABLE').name_instance)
-            print("pick up tomato")
-            vertex = GAME.current_maze.vertex_from_x_y(
-                pickup.x, pickup.y)
-            vertex.has_tomato = False
-            vertex.sprite_with_tomato = sprite
-            for sp in GAME.current_objects['AI_HOGS']:
-                sp.get_component('RILEARNING').recalc = True
+    def update_game_state(self):
+        if self.state.done:
+            self.change_game_state()
 
+    def change_game_state(self):
+        print("CHANGE GAME STATE")
+        state_kwargs = self.state.state_kwargs
+        self.state = self.state.next_state()
+        self.state.set_game_objects(self.game, **state_kwargs)
 
-def hoggy_collision_exit(sprite):
-    if sprite.rect.colliderect(GAME.current_maze.exit_vertex_rect):
-        print("HOGGY FOUND EXIT")
-        GAME_CLOCK.tick()
-        GAME.print_game_state(GAME_CLOCK.get_time())
-
-
-def set_next_dest_from_pi_a_s(sprite):
-    next_dest = GAME.current_maze.next_dest_from_pi_a_s(
-        sprite.get_component('RILEARNING').pi_a_s,
-        sprite)
-    sprite.get_component('AI').destination = next_dest
-
-
-def initialize_ai_hog(sprite, vertex):
-    sprite.get_state('MAZE').reset_edge_visits(
-        GAME.current_maze.maze_graph.edges)
-    sprite.get_state('MAZE').current_vertex = vertex
-    vertex.increment_sprite_visit_count(sprite)
-    # sprite.get_component('RILEARNING').update()
-    set_next_dest_from_pi_a_s(sprite)
-    GAME.add_ai_hoggy(sprite)
-
-
-def collision_ai_destinations(sprite_group):
-    for sprite in sprite_group:
-        if not sprite.get_state('MAZE').end:
-            if sprite.get_component('AI').reached_destination():
-                vertex = GAME.current_maze.vertex_from_point(
-                    sprite.get_component('AI').destination)
-                sprite.get_state('MAZE').current_vertex = vertex
-                vertex.increment_sprite_visit_count(sprite)
-                if sprite.has_component('RILEARNING'):
-                    set_next_dest_from_pi_a_s(sprite)
-
-
-def handle_collisions():
-    collision_one_to_many(GAME.current_objects[
-        'MAIN_PLAYER'], GAME.current_objects[
-            'MAZE_WALLS'], hoggy_collision_walls)
-    collision_one_to_many(GAME.current_objects[
-        'MAIN_PLAYER'], GAME.current_objects[
-            'PICKUPS'], hoggy_collision_tomatoes)
-    collision_many_to_many(GAME.current_objects[
-        'AI_HOGS'], GAME.current_objects[
-            'PICKUPS'], hoggy_collision_tomatoes)
-    collision_ai_destinations(GAME.current_objects[
-        'AI_HOGS'])
-    hoggy_collision_exit(GAME.current_objects[
-        'MAIN_PLAYER'].sprite)
-
-
-def game_initialize():
-    global WORLD
-    global HUD
-    global FPS_CLOCK
-    global GAME_CLOCK
-    global DEBUGSCREEN
-    global DEBUGEVENT
-    global DEBUGM
-    global DEBUGMAZESTATE
-
-    pygame.init()
-
-    DEBUGSCREEN = debuginfo.DebugInfo()
-    DEBUGEVENT = debugevent.DebugEvent()
-    DEBUGM = debugmouse.DebugMouse()
-    DEBUGM.update("", "")
-    DEBUGMAZESTATE = debugmazestate.DebugMazeState()
-    WORLD = pygame.display.set_mode((settings.WINDOW_WIDTH +
-                                     settings.HUD_OFFSETX,
-                                     settings.WINDOW_HEIGHT +
-                                     settings.HUD_OFFSETY))
-    HUD = pygame.Surface([settings.WINDOW_WIDTH,
-                          settings.HUD_OFFSETY]).convert()
-    FPS_CLOCK = pygame.time.Clock()
-    GAME_CLOCK = pygame.time.Clock()
-    # pygame.time.set_timer(AI_HOGGY_MOVE, MOVE_AI_HOGGY_TIMEOUT)
-
-
-def game_new():
-    global GAME
-    GAME = Game(GAME_CLOCK.get_time())
-    starting_vertex = GAME.current_maze.maze_graph.start_vertex
-    (x, y) = GAME.current_maze.center_for_vertex(starting_vertex)
-    print("CENTER X: {}, CENTER Y: {}".format(x, y))
-    main_player = actor_obj.ActorObject(
-        **{'x': x - (settings.SPRITE_SIZE / 2),
-           'y': y - (settings.SPRITE_SIZE / 2),
-           'height': settings.SPRITE_SIZE,
-           'width': settings.SPRITE_SIZE,
-           'sprite_sheet_key':
-           settings.HOGGY_STARTING_STATS['sprite_sheet_key'],
-           'name_object': 'hoggy',
-           'animation': AnimationComponent(),
-           'player_input': PlayerInputComponent(),
-           'orientation': OrientationComponent('horizontal', 'right'),
-           'movable': MovableComponent('hoggy_move',
-                                       settings.HOGGY_STARTING_STATS['speed']),
-           'inventory': InventoryState('tomato')
-           })
-
-    print("HOGGY X: {}, HOGGY Y: {}".format(main_player.x,
-                                            main_player.y))
-    randomize_button = actor_obj.ActorObject(**{
-        'x': settings.WINDOW_WIDTH - 200,
-        'y': 0,
-        'height': settings.SPRITE_SIZE * 2,
-        'width': settings.SPRITE_SIZE * 2,
-        'in_hud': True,
-        'sprite_sheet_key': 2,
-        'name_object': 'randomize_button',
-        'animation': AnimationComponent(),
-        'clickable': ClickableComponent('circle', reset_maze,
-                                        **settings.MAZE_STARTING_STATE)
-    })
-    nstates = GAME.current_maze.maze_width * GAME.current_maze.maze_height
-    ai_hoggy = actor_obj.ActorObject(
-        **{'x': x - (settings.SPRITE_SIZE / 2),
-           'y': y - (settings.SPRITE_SIZE / 2),
-           'height': settings.SPRITE_SIZE, 'width': settings.SPRITE_SIZE,
-           'sprite_sheet_key': settings.AI_HOGGY_STARTING_STATS[
-               'sprite_sheet_key'],
-           'name_object': 'ai_hoggy',
-           'inventory': InventoryState('tomato'),
-           'maze': MazeState('maze_state'),
-           'animation': AnimationComponent(),
-           'orientation': OrientationComponent('horizontal', 'right'),
-           'movable': MovableComponent(
-               'ai_hoggy_move', settings.AI_HOGGY_STARTING_STATS['speed']),
-           'ai': AIComponent(),
-           'rilearning':
-           RILearningComponent(
-               name_instance="ril_ai_hoggy",
-               gamma=settings.AI_HOGGY_STARTING_STATS['gamma'],
-               nstates=nstates,
-               action_space=GAME.action_space, actions=GAME.actions,
-               reward_dict=settings.AI_HOGGY_STARTING_STATS['reward_dict'],
-               reward_func=GAME.current_maze.maze_graph.set_rewards_table,
-               pi_a_s_func=GAME.current_maze.maze_graph.get_pi_a_s)
-           })
-    ai_hoggy_1 = actor_obj.ActorObject(
-        **{'x': x - (settings.SPRITE_SIZE / 2),
-           'y': y - (settings.SPRITE_SIZE / 2),
-           'height': settings.SPRITE_SIZE, 'width': settings.SPRITE_SIZE,
-           'sprite_sheet_key': settings.AI_HOGGY_STARTING_STATS[
-               'sprite_sheet_key'],
-           'name_object': 'ai_hoggy_1',
-           'inventory': InventoryState('tomato'),
-           'maze': MazeState('maze_state'),
-           'animation': AnimationComponent(),
-           'orientation': OrientationComponent('horizontal', 'right'),
-           'movable': MovableComponent('ai_hoggy_move', 10),
-           'ai': AIComponent(),
-           'rilearning':
-           RILearningComponent(
-               name_instance="ril_ai_hoggy",
-               gamma=settings.AI_HOGGY_STARTING_STATS['gamma'],
-               nstates=nstates,
-               action_space=GAME.action_space, actions=GAME.actions,
-               reward_dict=settings.AI_HOGGY_STARTING_STATS['reward_dict'],
-               reward_func=GAME.current_maze.maze_graph.set_rewards_table,
-               pi_a_s_func=GAME.current_maze.maze_graph.get_pi_a_s)
-           })
-    initialize_ai_hog(ai_hoggy, starting_vertex)
-    random_state = random.choice(range(nstates))
-    vertex = GAME.current_maze.maze_graph.get_vertex_by_name(random_state)
-    x, y = GAME.current_maze.topleft_sprite_center_in_vertex(
-        vertex, ai_hoggy)
-    ai_hoggy_1.coords = (x, y)
-    initialize_ai_hog(ai_hoggy_1, vertex)
-
-    GAME.main_player = main_player
-    # GAME.ai_hoggy.get_component('AI').destination = GAME.main_player
-    GAME.current_objects['UI_BUTTONS'].add(randomize_button)
-
-
-def handle_keys(event):
-    DEBUGEVENT.update(event)
-    if event.type == QUIT:
-        return "QUIT"
-    if event.type == KEYDOWN:
-        if event.key == K_UP:
-            GAME.main_player.get_component('PLAYER_INPUT').set_key_down('up')
-        if event.key == K_DOWN:
-            GAME.main_player.get_component('PLAYER_INPUT').set_key_down('down')
-        if event.key == K_LEFT:
-            GAME.main_player.get_component('PLAYER_INPUT').set_key_down('left')
-        if event.key == K_RIGHT:
-            GAME.main_player.get_component('PLAYER_INPUT').set_key_down(
-                'right')
-        if event.key == K_SPACE:
-            GAME.main_player.get_component('PLAYER_INPUT').set_key_down('eat')
-    if event.type == KEYUP:
-        if event.key == K_UP:
-            GAME.main_player.get_component('PLAYER_INPUT').set_key_up('up')
-        if event.key == K_DOWN:
-            GAME.main_player.get_component('PLAYER_INPUT').set_key_up('down')
-        if event.key == K_LEFT:
-            GAME.main_player.get_component('PLAYER_INPUT').set_key_up('left')
-        if event.key == K_RIGHT:
-            GAME.main_player.get_component('PLAYER_INPUT').set_key_up('right')
-        if event.key == K_SPACE:
-            GAME.main_player.get_component('PLAYER_INPUT').set_key_up('eat')
-            print("key up eat")
-            GAME.main_player.get_component('PLAYER_INPUT').just_ate = False
-        if event.key == K_d:
-            settings.IS_DEBUG = not settings.IS_DEBUG
-        if event.key == K_p:
-            GAME.is_paused = True
-    if event.type == MOUSEMOTION:
-        mousex, mousey = event.pos
-        DEBUGM.update(mousex, mousey)
-        return "MOUSEMOTION"
-    if event.type == MOUSEBUTTONUP:
-        mousex, mousey = event.pos
-        vertex = GAME.current_maze.vertex_from_x_y(
-            mousex - settings.HUD_OFFSETX,
-            mousey - settings.HUD_OFFSETY)
-        if vertex:
-            DEBUGMAZESTATE.update(vertex)
-        return "MOUSEBUTTONUP"
-    if event.type in [KEYDOWN, KEYUP]:
-        return "player-movement"
-    # if event.type == AI_HOGGY_MOVE:
-        # print("AI HOGGY MOVE EVENT HAPPENING")
-        # if not GAME.ai_hoggy.get_state('MAZE').end:
-        # pass
-        # GAME.current_maze.step_for_sprite(
-        # GAME.ai_hoggy)
-    # if event.type == RELOADED_EVENT:
-        # print("RELOADED EVENT HAPPENING")
-        # when the reload timer runs out, reset it
-        # print("reloading")
-        # pygame.time.set_timer(RELOADED_EVENT, 0)
-    return "no-action"
-
-
-def handle_event_paused(event):
-    if event.type == MOUSEBUTTONUP:
-        mousex, mousey = event.pos
-        vertex = GAME.current_maze.vertex_from_x_y(
-            mousex - settings.HUD_OFFSETX,
-            mousey - settings.HUD_OFFSETY)
-        if vertex:
-            DEBUGMAZESTATE.update(vertex)
-            draw_game()
-            draw_debug(0)
-            pygame.display.update()
-    if event.type == KEYUP and event.key == K_p:
-        GAME.is_paused = False
-
-
-def game_loop():
-    game_quit = False
-    while not game_quit:
-        while GAME.is_paused:
+    def game_loop(self):
+        while not self.game_quit:
+            while self.game.is_paused:
+                events = pygame.event.get()
+                for event in events:
+                    self.handle_event_paused(event)
+            dt = self.fps_clock.get_time()
             events = pygame.event.get()
+            mousex, mousey = pygame.mouse.get_pos()
+            if len(events) == 0:
+                events.append("no-action")
             for event in events:
-                handle_event_paused(event)
-        dt = FPS_CLOCK.get_time()
-        events = pygame.event.get()
-        mousex, mousey = pygame.mouse.get_pos()
-        if len(events) == 0:
-            events.append("no-action")
-        for event in events:
-            if event == "no-action":
-                event_type = event
-            else:
-                event_type = handle_keys(event)
-            if event_type == "QUIT":
-                game_quit = True
-                continue
-            update_components(dt, mousex, mousey, event_type)
-            handle_collisions()
-        draw_game()
+                if event == "no-action":
+                    event_type = event
+                else:
+                    event_type = self.handle_keys(event)
+                if event_type == "QUIT":
+                    self.game_quit = True
+                    continue
+                self.update_components(dt, mousex, mousey, event_type)
+                self.handle_collisions()
+            self.update_game_state()
+            self.draw_game()
 
-        if settings.IS_DEBUG:
-            draw_debug(dt)
+            if settings.IS_DEBUG:
+                self.draw_debug(dt)
 
-        pygame.display.update()
-        FPS_CLOCK.tick(settings.FPS)
+            pygame.display.update()
+            self.fps_clock.tick(settings.FPS)
+
+    def main(self):
+        self.game_loop()
+        pygame.quit()
 
 
-def main():
-    game_initialize()
-    game_new()
-    game_loop()
-    pygame.quit()
+class HoggyGameState(object):
+
+    def __init__(self):
+        self.done = False
+        self.next_state = None
+        self.state_kwargs = {}
+        self.initialize_state()
+
+    def empty_current_objects(self, game, object_name_list):
+        for object_name in object_name_list:
+            game.current_objects[object_name].empty()
+
+    def initialize_state(self):
+        raise NotImplementedError
+
+    def set_game_objects(self, game, **kwargs):
+        raise NotImplementedError
+
+    def draw_game(self, game):
+        raise NotImplementedError
+
+    def draw_debug(self):
+        raise NotImplementedError
+
+    def handle_keys(self, game, event):
+        raise NotImplementedError
+
+    def handle_collisions(self, game):
+        raise NotImplementedError
+
+    def handle_event_paused(self):
+        pass
+
+
+class HoggyFinishLevelState(HoggyGameState):
+
+    def __init__(self):
+        super().__init__()
+
+    def initialize_state(self):
+        print("Initialize Finish Level State")
+        self.world = pygame.display.set_mode((settings.WINDOW_WIDTH,
+                                              settings.WINDOW_HEIGHT))
+        self.level_state = None
+
+    def draw_game(self, game):
+        self.world.fill(settings.WHITE)
+        draw_text(self.world, "Level Complete!".format(game.level),
+                  45, 350, 100, settings.ORANGE)
+        if self.level_state:
+            level_state_text = "You picked up {} tomatoes".format(
+                self.level_state["hoggy"]["ntomatoes"])
+            draw_text(self.world, level_state_text,
+                      30, 350, 400, settings.BLUE)
+            time_elapsed = self.level_state["time_elapsed"]
+            time_text = "You finished in {} minutes and {} seconds".format(
+                time_elapsed, time_elapsed)
+            draw_text(self.world, time_text,
+                      30, 350, 500, settings.BLUE)
+        for name, obj in game.current_objects.items():
+            for sprite in obj:
+                if sprite.name_object != 'hoggy':
+                    self.world.blit(sprite.image, (sprite.x, sprite.y))
+
+    def handle_keys(self, game, event):
+        if event.type == QUIT:
+            return "QUIT"
+        if event.type == KEYDOWN:
+            if event.key == K_UP:
+                print("PRESSING UP")
+                game.main_player.get_component('PLAYER_INPUT').set_key_down(
+                    'up')
+            if event.key == K_DOWN:
+                print("PRESSING DOWN")
+                game.main_player.get_component('PLAYER_INPUT').set_key_down(
+                    'down')
+            if event.key == K_LEFT:
+                game.main_player.get_component('PLAYER_INPUT').set_key_down(
+                    'left')
+            if event.key == K_RIGHT:
+                game.main_player.get_component('PLAYER_INPUT').set_key_down(
+                    'right')
+            if event.key == K_SPACE:
+                game.main_player.get_component('PLAYER_INPUT').set_key_down(
+                    'eat')
+        if event.type == KEYUP:
+            if event.key == K_UP:
+                print("RELEASING UP")
+                game.main_player.get_component('PLAYER_INPUT').set_key_up(
+                    'up')
+            if event.key == K_DOWN:
+                print("RELEASING DOWN")
+                game.main_player.get_component('PLAYER_INPUT').set_key_up(
+                    'down')
+            if event.key == K_LEFT:
+                game.main_player.get_component('PLAYER_INPUT').set_key_up(
+                    'left')
+            if event.key == K_RIGHT:
+                game.main_player.get_component('PLAYER_INPUT').set_key_up(
+                    'right')
+            if event.key == K_SPACE:
+                game.main_player.get_component('PLAYER_INPUT').set_key_up(
+                    'eat')
+                print("key up eat")
+                game.main_player.get_component('PLAYER_INPUT').just_ate = False
+            if event.key == K_d:
+                settings.IS_DEBUG = not settings.IS_DEBUG
+            if event.key == K_p:
+                game.is_paused = True
+        if event.type in [KEYDOWN, KEYUP]:
+            return "player-movement"
+        if event.type == MOUSEMOTION:
+            mousex, mousey = event.pos
+            return "MOUSEMOTION"
+        if event.type == MOUSEBUTTONUP:
+            mousex, mousey = event.pos
+            return "MOUSEBUTTONUP"
+        return "no-action"
+
+    def handle_collisions(self, game):
+        pass
+
+    def next_level(self, game):
+        print("CLICK")
+        self.done = True
+        self.next_state = HoggyMazeLevelState
+        self.empty_current_objects(game, ['UI_BUTTONS'])
+        game.reset_maze(
+            **settings.LEVEL_SETTINGS[game.level][
+                'reset_maze'])
+
+    def set_game_objects(self, game, **kwargs):
+        self.empty_current_objects(game,
+                                   ['MAZE_WALLS', 'PICKUPS',
+                                    'HUD', 'UI_BUTTONS',
+                                    'AI_HOGS'])
+
+        self.level_state = kwargs['level_state']
+        print(self.level_state)
+        continue_button = actor_obj.ActorObject(**{
+            'x': 300,
+            'y': 200,
+            'height': settings.SPRITE_SIZE * 2,
+            'width': settings.SPRITE_SIZE * 2,
+            'in_hud': False,
+            'sprite_sheet_key': 2,
+            'name_object': 'continue_button',
+            'animation': AnimationComponent(),
+            'clickable': ClickableComponent(
+                'circle', self.next_level,
+                **{"game": game})
+        })
+        game.current_objects['UI_BUTTONS'].add(continue_button)
+
+    def draw_debug(self):
+        pass
+
+
+class HoggyMazeLevelState(HoggyGameState):
+
+    def __init__(self):
+        super().__init__()
+
+    def initialize_state(self):
+        self.debugscreen = debuginfo.DebugInfo()
+        self.debugevent = debugevent.DebugEvent()
+        self.debugm = debugmouse.DebugMouse()
+        self.debugm.update("", "")
+        self.debugmazestate = debugmazestate.DebugMazeState()
+        self.world = pygame.display.set_mode((settings.WINDOW_WIDTH +
+                                              settings.HUD_OFFSETX,
+                                              settings.WINDOW_HEIGHT +
+                                              settings.HUD_OFFSETY))
+        self.hud = pygame.Surface([settings.WINDOW_WIDTH,
+                                   settings.HUD_OFFSETY]).convert()
+        self.game_clock = pygame.time.Clock()
+        self.level_start_time = self.game_clock.get_time()
+        print("START TIME: {}".format(self.level_start_time))
+
+    def set_game_objects(self, game, **kwargs):
+        self.level_settings = settings.LEVEL_SETTINGS[game.level]
+        starting_vertex = game.current_maze.maze_graph.start_vertex
+        (x, y) = game.current_maze.center_for_vertex(starting_vertex)
+        print("CENTER X: {}, CENTER Y: {}".format(x, y))
+        if self.level_settings['new_hoggy']:
+            main_player = actor_obj.ActorObject(
+                **{'x': x - (settings.SPRITE_SIZE / 2),
+                   'y': y - (settings.SPRITE_SIZE / 2),
+                   'height': settings.SPRITE_SIZE,
+                   'width': settings.SPRITE_SIZE,
+                   'sprite_sheet_key':
+                   settings.HOGGY_STARTING_STATS['sprite_sheet_key'],
+                   'name_object': 'hoggy',
+                   'animation': AnimationComponent(),
+                   'player_input': PlayerInputComponent(),
+                   'orientation': OrientationComponent('horizontal', 'right'),
+                   'movable': MovableComponent('hoggy_move',
+                                               settings.HOGGY_STARTING_STATS[
+                                                   'speed']),
+                   'inventory': InventoryState('tomato')
+                   })
+            print("HOGGY X: {}, HOGGY Y: {}".format(main_player.x,
+                                                    main_player.y))
+            game.main_player = main_player
+        randomize_button = actor_obj.ActorObject(**{
+            'x': settings.WINDOW_WIDTH - 200,
+            'y': 0,
+            'height': settings.SPRITE_SIZE * 2,
+            'width': settings.SPRITE_SIZE * 2,
+            'in_hud': True,
+            'sprite_sheet_key': 2,
+            'name_object': 'randomize_button',
+            'animation': AnimationComponent(),
+            'clickable': ClickableComponent(
+                'circle', game.reset_maze,
+                **self.level_settings['reset_maze'])
+        })
+        nstates = (self.level_settings['reset_maze']['maze_width']
+                   * self.level_settings['reset_maze']['maze_height'])
+        ai_hoggy = actor_obj.ActorObject(
+            **{'x': x - (settings.SPRITE_SIZE / 2),
+               'y': y - (settings.SPRITE_SIZE / 2),
+               'height': settings.SPRITE_SIZE, 'width': settings.SPRITE_SIZE,
+               'sprite_sheet_key': settings.AI_HOGGY_STARTING_STATS[
+                   'sprite_sheet_key'],
+               'name_object': 'ai_hoggy',
+               'inventory': InventoryState('tomato'),
+               'maze': MazeState('maze_state'),
+               'animation': AnimationComponent(),
+               'orientation': OrientationComponent('horizontal', 'right'),
+               'movable': MovableComponent(
+                   'ai_hoggy_move', settings.AI_HOGGY_STARTING_STATS['speed']),
+               'ai': AIComponent(),
+               'rilearning':
+               RILearningComponent(
+                   name_instance="ril_ai_hoggy",
+                   gamma=settings.AI_HOGGY_STARTING_STATS['gamma'],
+                   nstates=nstates,
+                   action_space=game.action_space,
+                   actions=game.actions,
+                   reward_dict=settings.AI_HOGGY_STARTING_STATS['reward_dict'],
+                   reward_func=game.current_maze.maze_graph.set_rewards_table,
+                   pi_a_s_func=game.current_maze.maze_graph.get_pi_a_s)
+               })
+        ai_hoggy_1 = actor_obj.ActorObject(
+            **{'x': x - (settings.SPRITE_SIZE / 2),
+               'y': y - (settings.SPRITE_SIZE / 2),
+               'height': settings.SPRITE_SIZE, 'width': settings.SPRITE_SIZE,
+               'sprite_sheet_key': settings.AI_HOGGY_STARTING_STATS[
+                   'sprite_sheet_key'],
+               'name_object': 'ai_hoggy_1',
+               'inventory': InventoryState('tomato'),
+               'maze': MazeState('maze_state'),
+               'animation': AnimationComponent(),
+               'orientation': OrientationComponent('horizontal', 'right'),
+               'movable': MovableComponent('ai_hoggy_move', 10),
+               'ai': AIComponent(),
+               'rilearning':
+               RILearningComponent(
+                   name_instance="ril_ai_hoggy",
+                   gamma=settings.AI_HOGGY_STARTING_STATS['gamma'],
+                   nstates=nstates,
+                   action_space=game.action_space,
+                   actions=game.actions,
+                   reward_dict=settings.AI_HOGGY_STARTING_STATS['reward_dict'],
+                   reward_func=game.current_maze.maze_graph.set_rewards_table,
+                   pi_a_s_func=game.current_maze.maze_graph.get_pi_a_s)
+               })
+        self.initialize_ai_hog(game, ai_hoggy, starting_vertex)
+        random_state = random.choice(range(nstates))
+        vertex = game.current_maze.maze_graph.get_vertex_by_name(
+            random_state)
+        x, y = game.current_maze.topleft_sprite_center_in_vertex(
+            vertex, ai_hoggy)
+        ai_hoggy_1.coords = (x, y)
+        self.initialize_ai_hog(game, ai_hoggy_1, vertex)
+
+        game.current_objects['UI_BUTTONS'].add(randomize_button)
+        self.set_hud(game)
+
+    def draw_debug(self, game, dt):
+        for ai_hoggy in game.current_objects['AI_HOGS']:
+            self.debugscreen.update(ai_hoggy, dt)
+            self.world.blit(self.debugm.text, (0, 400))
+            for i, t in enumerate(self.debugmazestate.text_list):
+                self.world.blit(t, (0, 500 + (i * 30)))
+
+    def set_hud(self, game):
+        tomato = actor_obj.ActorObject(
+            **{'x': 10, 'y': 10,
+               'height': settings.TOMATO_STATE['height'],
+               'width': settings.TOMATO_STATE['width'],
+               'sprite_sheet_key': settings.TOMATO_STATE['sprite_sheet_key'],
+               'in_hud': True,
+               'name_object': 'hud_tomato'
+               })
+        game.current_objects['HUD'].add(tomato)
+
+    def draw_to_hud(self, game):
+        ntomatoes = game.main_player.get_state(
+              'INVENTORY').inventory.get('tomato')
+        draw_text(self.hud, "x",
+                  24, 55, 28, settings.ORANGE)
+        draw_text(self.hud, "{}".format(ntomatoes),
+                  40, 75, 30, settings.ORANGE)
+
+    def draw_game(self, game):
+        self.world.fill(settings.WHITE)
+        game.current_maze.image.fill(settings.WHITE)
+        self.hud.fill(settings.BLACK)
+
+        for name, obj in game.current_objects.items():
+            for sprite in obj:
+                if not sprite.in_hud:
+                    game.current_maze.image.blit(sprite.image,
+                                                 (sprite.x, sprite.y))
+                else:
+                    self.hud.blit(sprite.image, (sprite.x, sprite.y))
+                    self.draw_to_hud(game)
+        self.world.blit(game.current_maze.image,
+                        (0, settings.HUD_OFFSETY))
+        self.world.blit(self.hud, (0, 0))
+
+    def hoggy_collision_exit(self, game, sprite):
+        if sprite.rect.colliderect(game.current_maze.exit_vertex_rect):
+            print("HOGGY FOUND EXIT")
+            self.game_clock.tick()
+            level_state = self.print_level_state(game,
+                                                 self.game_clock.get_time())
+            self.done = True
+            game.level += 1
+            game.current_maze = None
+            self.next_state = HoggyFinishLevelState
+            self.state_kwargs = {'level_state': level_state}
+
+    def print_level_state(self, game, time_elapsed):
+        level_state_dict = {}
+        for ai_hog in game.current_objects['AI_HOGS']:
+            level_state_dict.update({
+                ai_hog.name_object: {
+                    "ntomatoes": ai_hog.get_state(
+                        'INVENTORY').inventory.get('tomato')}
+                })
+        level_state_dict.update({
+            game.main_player.name_object: {
+                "ntomatoes": game.main_player.get_state(
+                    'INVENTORY').inventory.get('tomato')}
+            })
+        level_state_dict.update({
+            'time_elapsed': time_elapsed})
+        return(level_state_dict)
+
+    def handle_collisions(self, game):
+        collision_one_to_many(game.current_objects[
+            'MAIN_PLAYER'], game.current_objects[
+                'MAZE_WALLS'], hoggy_collision_walls,
+            game)
+        collision_one_to_many(game.current_objects[
+            'MAIN_PLAYER'], game.current_objects[
+                'PICKUPS'], self.hoggy_collision_tomatoes,
+            game)
+        collision_many_to_many(game.current_objects[
+            'AI_HOGS'], game.current_objects[
+                'PICKUPS'], self.hoggy_collision_tomatoes,
+            game)
+        self.collision_ai_destinations(game.current_objects[
+            'AI_HOGS'], game)
+        self.hoggy_collision_exit(game, game.current_objects[
+            'MAIN_PLAYER'].sprite)
+
+    def hoggy_collision_tomatoes(self, sprite, colliding_pickups, game):
+        for pickup in colliding_pickups:
+            if pickup.get_component('PICKUPABLE').name_instance == "tomato":
+                pickup.get_component('PICKUPABLE').picked_up = True
+                sprite.get_state('INVENTORY').add_item(
+                    pickup.get_component('PICKUPABLE').name_instance)
+                print("pick up tomato")
+                vertex = game.current_maze.vertex_from_x_y(
+                    pickup.x, pickup.y)
+                vertex.has_tomato = False
+                vertex.sprite_with_tomato = sprite
+                for sp in game.current_objects['AI_HOGS']:
+                    sp.get_component('RILEARNING').recalc = True
+
+    def set_next_dest_from_pi_a_s(self, game, sprite):
+        next_dest = game.current_maze.next_dest_from_pi_a_s(
+            sprite.get_component('RILEARNING').pi_a_s,
+            sprite)
+        sprite.get_component('AI').destination = next_dest
+
+    def initialize_ai_hog(self, game, sprite, vertex):
+        sprite.get_state('MAZE').reset_edge_visits(
+            game.current_maze.maze_graph.edges)
+        sprite.get_state('MAZE').current_vertex = vertex
+        vertex.increment_sprite_visit_count(sprite)
+        self.set_next_dest_from_pi_a_s(game, sprite)
+        game.add_ai_hoggy(sprite)
+
+    def collision_ai_destinations(self, sprite_group, game):
+        for sprite in sprite_group:
+            if not sprite.get_state('MAZE').end:
+                if sprite.get_component('AI').reached_destination():
+                    vertex = game.current_maze.vertex_from_point(
+                        sprite.get_component('AI').destination)
+                    sprite.get_state('MAZE').current_vertex = vertex
+                    vertex.increment_sprite_visit_count(sprite)
+                    if sprite.has_component('RILEARNING'):
+                        self.set_next_dest_from_pi_a_s(game, sprite)
+
+    def handle_event_paused(self, game, event):
+        if event.type == MOUSEBUTTONUP:
+            mousex, mousey = event.pos
+            vertex = game.current_maze.vertex_from_x_y(
+                mousex - settings.HUD_OFFSETX,
+                mousey - settings.HUD_OFFSETY)
+            if vertex:
+                self.debugmazestate.update(vertex)
+                self.draw_game(game)
+                self.draw_debug(0)
+                pygame.display.update()
+        if event.type == KEYUP and event.key == K_p:
+            game.is_paused = False
+
+    def handle_keys(self, game, event):
+        self.debugevent.update(event)
+        if event.type == QUIT:
+            return "QUIT"
+        if event.type == KEYDOWN:
+            if event.key == K_UP:
+                print("PRESSING UP")
+                game.main_player.get_component('PLAYER_INPUT').set_key_down(
+                    'up')
+            if event.key == K_DOWN:
+                print("PRESSING DOWN")
+                game.main_player.get_component('PLAYER_INPUT').set_key_down(
+                    'down')
+            if event.key == K_LEFT:
+                game.main_player.get_component('PLAYER_INPUT').set_key_down(
+                    'left')
+            if event.key == K_RIGHT:
+                game.main_player.get_component('PLAYER_INPUT').set_key_down(
+                    'right')
+            if event.key == K_SPACE:
+                game.main_player.get_component('PLAYER_INPUT').set_key_down(
+                    'eat')
+        if event.type == KEYUP:
+            if event.key == K_UP:
+                print("RELEASING UP")
+                game.main_player.get_component('PLAYER_INPUT').set_key_up(
+                    'up')
+            if event.key == K_DOWN:
+                print("RELEASING DOWN")
+                game.main_player.get_component('PLAYER_INPUT').set_key_up(
+                    'down')
+            if event.key == K_LEFT:
+                game.main_player.get_component('PLAYER_INPUT').set_key_up(
+                    'left')
+            if event.key == K_RIGHT:
+                game.main_player.get_component('PLAYER_INPUT').set_key_up(
+                    'right')
+            if event.key == K_SPACE:
+                game.main_player.get_component('PLAYER_INPUT').set_key_up(
+                    'eat')
+                print("key up eat")
+                game.main_player.get_component('PLAYER_INPUT').just_ate = False
+            if event.key == K_d:
+                settings.IS_DEBUG = not settings.IS_DEBUG
+            if event.key == K_p:
+                game.is_paused = True
+        if event.type == MOUSEMOTION:
+            mousex, mousey = event.pos
+            self.debugm.update(mousex, mousey)
+            return "MOUSEMOTION"
+        if event.type == MOUSEBUTTONUP:
+            mousex, mousey = event.pos
+            vertex = game.current_maze.vertex_from_x_y(
+                mousex - settings.HUD_OFFSETX,
+                mousey - settings.HUD_OFFSETY)
+            if vertex:
+                self.debugmazestate.update(vertex)
+            return "MOUSEBUTTONUP"
+        if event.type in [KEYDOWN, KEYUP]:
+            return "player-movement"
+        return "no-action"
 
 
 if __name__ == '__main__':
-    main()
+    hoggy = Hoggy(HoggyMazeLevelState)
+    hoggy.main()

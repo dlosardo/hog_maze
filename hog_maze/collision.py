@@ -2,23 +2,23 @@ import pygame
 
 
 def collision_one_to_many(single_group, sprite_group,
-                          callback):
+                          callback, game):
     # collision detection between single_group and sprite_group
     colliding_shapes = pygame.sprite.spritecollide(
         single_group.sprite, sprite_group, False)
-    callback(single_group.sprite, colliding_shapes)
+    callback(single_group.sprite, colliding_shapes, game)
 
 
 def collision_many_to_many(sprite_group_1, sprite_group_2,
-                           callback):
+                           callback, game):
     # collision detection between sprite_group and sprite_group
     for sprite in sprite_group_1:
         colliding_shapes = pygame.sprite.spritecollide(
             sprite, sprite_group_2, False)
-        callback(sprite, colliding_shapes)
+        callback(sprite, colliding_shapes, game)
 
 
-def hoggy_collision_walls(sprite, colliding_shapes):
+def hoggy_collision_walls(sprite, colliding_shapes, game):
     for shape in colliding_shapes:
         # Moving right; Hit the left side of the wall
         if sprite.get_component('MOVABLE').velocity['x'] > 0:

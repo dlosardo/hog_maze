@@ -1,5 +1,4 @@
 import hog_maze.settings as settings
-from hog_maze.util.util_draw import draw_text
 import hog_maze.actor_obj as actor_obj
 from hog_maze.maze.maze_game import MazeGame
 from hog_maze.maze.maze import MazeDirections
@@ -8,10 +7,9 @@ from hog_maze.components.animation_component import AnimationComponent
 
 
 class Game():
-    def __init__(self, start_time):
-        self.start_time = start_time
-        print("START TIME: {}".format(start_time))
+    def __init__(self):
         self.maze_number = 0
+        self.level = 1
         self.current_objects = {}
         self.current_objects.update(
             {'MAIN_PLAYER': actor_obj.ActorObjectGroupSingle(
@@ -33,10 +31,8 @@ class Game():
                 'HUD')})
         self.previous_mazes = {}
         self.current_maze = None
-        self.reset_maze(**settings.MAZE_STARTING_STATE)
-        self.set_hud()
+        self.reset_maze(**settings.LEVEL_SETTINGS[self.level]['reset_maze'])
         self.is_paused = False
-        self.maze_state_changed = False
         self.action_space = 4
         self.actions = [MazeDirections.NORTH,
                         MazeDirections.SOUTH,
@@ -145,42 +141,6 @@ class Game():
                 tomato.set_pos(x, y)
                 cubby_vertex.has_tomato = True
                 self.current_objects['PICKUPS'].add(tomato)
-
-    def set_hud(self):
-        tomato = actor_obj.ActorObject(
-            **{'x': 10, 'y': 10,
-               'height': settings.TOMATO_STATE['height'],
-               'width': settings.TOMATO_STATE['width'],
-               'sprite_sheet_key': settings.TOMATO_STATE['sprite_sheet_key'],
-               'in_hud': True,
-               'name_object': 'hud_tomato'
-               })
-        self.current_objects['HUD'].add(tomato)
-
-    def draw_to_hud(self, hud):
-        ntomatoes = self.main_player.get_state(
-              'INVENTORY').inventory.get('tomato')
-        draw_text(hud, "x",
-                  24, 55, 28, settings.ORANGE)
-        draw_text(hud, "{}".format(ntomatoes),
-                  40, 75, 30, settings.ORANGE)
-
-    def print_game_state(self, time_elapsed):
-        game_state_dict = {}
-        for ai_hog in self.current_objects['AI_HOGS']:
-            game_state_dict.update({
-                ai_hog.name_object: {
-                    "ntomatoes": ai_hog.get_state(
-                        'INVENTORY').inventory.get('tomato')}
-                })
-        game_state_dict.update({
-            self.main_player.name_object: {
-                "ntomatoes": self.main_player.get_state(
-                    'INVENTORY').inventory.get('tomato')}
-            })
-        game_state_dict.update({
-            'time_elapsed': time_elapsed})
-        print(game_state_dict)
 
     def print_maze_path(self):
         maze_path = ""

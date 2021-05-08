@@ -105,3 +105,43 @@ def format_float(num):
 
 
 r31 = np.vectorize(format_float)
+
+LEVEL_1_SETTINGS = {
+    'reset_maze':
+        {
+            'maze_width': 6,
+            'maze_height': 6,
+            'wall_scale': 8,
+            'area_width': WINDOW_WIDTH,
+            'area_height': WINDOW_HEIGHT,
+            'entrance_direction': MazeDirections.SOUTH,
+            'starting_vertex_name': None,
+            'exit_direction': MazeDirections.SOUTH,
+            'seed': MAZE_SEED
+        },
+    'new_hoggy': True,
+    'n_ai_hogs': 1,
+    'add_tomatoes': True
+}
+
+LEVEL_2_SETTINGS = {
+    'reset_maze':
+    {
+        'maze_width': 8,
+        'maze_height': 8,
+        'wall_scale': 6,
+        'area_width': WINDOW_WIDTH,
+        'area_height': WINDOW_HEIGHT,
+        'entrance_direction': MazeDirections.EAST,
+        'starting_vertex_name': None,
+        'exit_direction': MazeDirections.WEST,
+        'seed': MAZE_SEED
+     },
+    'new_hoggy': False,
+    'n_ai_hogs': 2,
+    'add_tomatoes': True
+}
+
+LEVEL_SETTINGS = {1: LEVEL_1_SETTINGS,
+                  2: LEVEL_2_SETTINGS
+                  }
