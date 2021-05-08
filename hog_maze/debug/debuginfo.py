@@ -22,7 +22,7 @@ class DebugInfo(object):
                     sprite.get_state('INVENTORY').inventory.get('tomato'),
                     xy),
                 True, settings.BLACK, settings.WHITE))
-        elif sprite.name_object == 'ai_hoggy':
+        elif 'ai_hoggy' in sprite.name_object:
             current_vertex = sprite.get_state('MAZE').current_vertex
             sprite_with_tomato = "None"
             if current_vertex.sprite_with_tomato:

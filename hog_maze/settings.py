@@ -29,7 +29,7 @@ SPRITE_SHEET_DICT = {0: {'image_filename':
                          'animation_delay': 400}
                      }
 
-HOGGY_STARTING_STATS = {"speed": 12,
+HOGGY_STARTING_STATS = {"speed": 13,
                         "sprite_sheet_key": 0}
 
 AI_HOGGY_STARTING_STATS = {"speed": 8,
@@ -50,7 +50,7 @@ MAZE_STARTING_STATE = {
     'area_height': WINDOW_HEIGHT,
     'entrance_direction': MazeDirections.SOUTH,
     'starting_vertex_name': None,
-    'exit_direction': MazeDirections.NORTH,
+    'exit_direction': MazeDirections.SOUTH,
     'seed': MAZE_SEED
 }
 

@@ -18,7 +18,7 @@ class RILearningComponent(HogMazeComponent):
         self.reward_func = reward_func
         self.pi_a_s_func = pi_a_s_func
         if theta is None:
-            self.theta = .01
+            self.theta = .1
         else:
             self.theta = theta
         if max_iter is None:
@@ -27,7 +27,11 @@ class RILearningComponent(HogMazeComponent):
             self.max_iter = max_iter
         self.delta = 0
         self.converged = False
-        self.recalc = True
+        self.set_rewards_table()
+        self.set_pi_a_s()
+        self.initialize_value_function()
+        self.value_iteration()
+        self.recalc = False
 
     def set_rewards_table(self):
         self.rewards_table = self.reward_func(
@@ -92,6 +96,6 @@ class RILearningComponent(HogMazeComponent):
         if self.recalc:
             self.set_rewards_table()
             self.set_pi_a_s()
-            self.initialize_value_function()
+            # self.initialize_value_function()
             self.value_iteration()
             self.recalc = False

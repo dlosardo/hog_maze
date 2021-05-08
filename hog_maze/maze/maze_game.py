@@ -72,6 +72,7 @@ class MazeGame(object):
             entrance_direction=self.entrance_direction,
             exit_direction=self.exit_direction,
             seed=self.seed)
+        self.set_exit_rect()
         self.set_maze_walls()
 
     def generate_starting_vertex(self):
@@ -173,9 +174,12 @@ class MazeGame(object):
                 if rect.collidepoint(x, y):
                     return self.maze_graph.maze_layout[row][col]
 
+    def vertex_from_point(self, point):
+        return self.vertex_from_x_y(point.x, point.y)
+
     def all_neighbors_for_sprite(self, sprite):
         vertex = self.vertex_from_x_y(sprite.x, sprite.y)
-        all_neighbors = self.maze_graph.graph[vertex]
+        all_neighbors = self.all_neighbors_for_vertex(vertex)
         return all_neighbors
 
     def all_neighbors_for_vertex(self, vertex):
@@ -465,3 +469,36 @@ class MazeGame(object):
                 if vertex.east_wall:
                     self.maze_walls.append(
                         self.vertical_wall(right, top))
+
+    def set_exit_rect(self):
+        exit_vertex = None
+        for vertex in self.maze_graph.graph.keys():
+            if vertex.is_exit_vertex:
+                print("Exit vertex is: {}".format(vertex))
+                exit_vertex = vertex
+                break
+        if exit_vertex is not None:
+            self.exit_vertex_rect = None
+            row, col = self.maze_graph.get_row_col_for_vertex(exit_vertex)
+            left = (col * self.cell_width + self.rect.topleft[1])
+            top = (row * self.cell_height + self.rect.topleft[0])
+            bottom = (top +
+                      self.cell_height)
+            # - math.ceil(self.cell_height / self.wall_scale))
+            right = (left +
+                     self.cell_width)
+            # - math.ceil(self.cell_width / self.wall_scale))
+            if self.exit_direction == MazeDirections.NORTH:
+                self.exit_vertex_rect = pygame.Rect(
+                    left, top, self.cell_width, 1)
+            elif self.exit_direction == MazeDirections.SOUTH:
+                self.exit_vertex_rect = pygame.Rect(
+                    left, bottom, self.cell_width, 1)
+            elif self.exit_direction == MazeDirections.EAST:
+                self.exit_vertex_rect = pygame.Rect(right, top, 1,
+                                                    self.cell_height)
+            elif self.exit_direction == MazeDirections.WEST:
+                self.exit_vertex_rect = pygame.Rect(left, top, 1,
+                                                    self.cell_height)
+        else:
+            self.exit_vertex_rect = None

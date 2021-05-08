@@ -153,6 +153,11 @@ class ActorObject(pygame.sprite.Sprite):
                 self.y)
 
     @coords.setter
-    def coords(self, x, y):
-        self.x = x
-        self.y = y
+    def coords(self, xy_tuple):
+        try:
+            x, y = xy_tuple
+        except ValueError:
+            raise ValueError("Pass an iterable with two items")
+        else:
+            self.x = x
+            self.y = y

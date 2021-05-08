@@ -8,7 +8,9 @@ from hog_maze.components.animation_component import AnimationComponent
 
 
 class Game():
-    def __init__(self):
+    def __init__(self, start_time):
+        self.start_time = start_time
+        print("START TIME: {}".format(start_time))
         self.maze_number = 0
         self.current_objects = {}
         self.current_objects.update(
@@ -84,6 +86,10 @@ class Game():
         if starting_vertex_name is None:
             starting_vertex_name = self.current_maze.generate_starting_vertex()
         self.current_maze.set_maze(starting_vertex_name)
+        print("LEFT: {}".format(self.current_maze.exit_vertex_rect.left))
+        print("RIGHT: {}".format(self.current_maze.exit_vertex_rect.right))
+        print("TOP: {}".format(self.current_maze.exit_vertex_rect.top))
+        print("BOTTOM: {}".format(self.current_maze.exit_vertex_rect.bottom))
         self.current_objects['PICKUPS'].empty()
         self.current_objects['MAZE_WALLS'].empty()
         self.current_objects['MAZE_WALLS'].add(
@@ -110,12 +116,15 @@ class Game():
                 ai_hoggy.reward_func = (self.current_maze.maze_graph.
                                         set_rewards_table)
                 ai_hoggy.pi_a_s_func = self.current_maze.maze_graph.get_pi_a_s
+                ai_hoggy.get_component(
+                    'RILEARNING').initialize_value_function()
                 ai_hoggy.get_component('RILEARNING').recalc = True
                 ai_hoggy.get_component('RILEARNING').update()
                 next_dest = self.current_maze.next_dest_from_pi_a_s(
                     ai_hoggy.get_component('RILEARNING').pi_a_s,
                     ai_hoggy)
                 ai_hoggy.get_component('AI').destination = next_dest
+                # self.print_maze_path()
 
     def place_tomatoes(self):
         cubby_vertices = self.current_maze.maze_graph.all_cubby_vertices()
@@ -156,11 +165,31 @@ class Game():
         draw_text(hud, "{}".format(ntomatoes),
                   40, 75, 30, settings.ORANGE)
 
+    def print_game_state(self, time_elapsed):
+        game_state_dict = {}
+        for ai_hog in self.current_objects['AI_HOGS']:
+            game_state_dict.update({
+                ai_hog.name_object: {
+                    "ntomatoes": ai_hog.get_state(
+                        'INVENTORY').inventory.get('tomato')}
+                })
+        game_state_dict.update({
+            self.main_player.name_object: {
+                "ntomatoes": self.main_player.get_state(
+                    'INVENTORY').inventory.get('tomato')}
+            })
+        game_state_dict.update({
+            'time_elapsed': time_elapsed})
+        print(game_state_dict)
+
     def print_maze_path(self):
         maze_path = ""
         top_layer = ""
         bottom_layer = ""
-        (ai_hoggy_row, ai_hoggy_col) = self.ai_hoggy.get_state('MAZE').coord
+        print(self.current_objects['AI_HOGS'])
+        ai_hoggy = self.current_objects['AI_HOGS'].sprite
+        vertex = self.current_maze.vertex_from_x_y(*ai_hoggy.coords)
+        (ai_hoggy_row, ai_hoggy_col) = vertex.row, vertex.col
         for row in range(0, self.current_maze.maze_height):
             maze_path_below = ""
             maze_path_above = ""
