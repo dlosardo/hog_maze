@@ -4,6 +4,7 @@ from pygame.locals import (
     K_LEFT, K_RIGHT, MOUSEMOTION,
     MOUSEBUTTONUP, K_SPACE, K_d, K_p
 )
+import random
 import hog_maze.settings as settings
 import hog_maze.actor_obj as actor_obj
 from hog_maze.game import Game
@@ -65,13 +66,14 @@ def draw_game():
 
 
 def draw_debug(dt):
-    DEBUGSCREEN.update(GAME.ai_hoggy, dt)
-    # for i, t in enumerate(DEBUGSCREEN.text_list):
-    # WORLD.blit(t, (0, 465 + (i * 30)))
-    WORLD.blit(DEBUGM.text, (0, 400))
-    # WORLD.blit(DEBUGEVENT.text, (0, 440))
-    for i, t in enumerate(DEBUGMAZESTATE.text_list):
-        WORLD.blit(t, (0, 500 + (i * 30)))
+    for ai_hoggy in GAME.current_objects['AI_HOGS']:
+        DEBUGSCREEN.update(ai_hoggy, dt)
+        # for i, t in enumerate(DEBUGSCREEN.text_list):
+        # WORLD.blit(t, (0, 465 + (i * 30)))
+        WORLD.blit(DEBUGM.text, (0, 400))
+        # WORLD.blit(DEBUGEVENT.text, (0, 440))
+        for i, t in enumerate(DEBUGMAZESTATE.text_list):
+            WORLD.blit(t, (0, 500 + (i * 30)))
 
 
 def reset_maze(**kwargs):
@@ -93,6 +95,13 @@ def hoggy_collision_tomatoes(sprite, colliding_pickups):
                 sp.get_component('RILEARNING').recalc = True
 
 
+def hoggy_collision_exit(sprite):
+    if sprite.rect.colliderect(GAME.current_maze.exit_vertex_rect):
+        print("HOGGY FOUND EXIT")
+        GAME_CLOCK.tick()
+        GAME.print_game_state(GAME_CLOCK.get_time())
+
+
 def set_next_dest_from_pi_a_s(sprite):
     next_dest = GAME.current_maze.next_dest_from_pi_a_s(
         sprite.get_component('RILEARNING').pi_a_s,
@@ -100,12 +109,12 @@ def set_next_dest_from_pi_a_s(sprite):
     sprite.get_component('AI').destination = next_dest
 
 
-def initialize_ai_hog(sprite, starting_vertex):
+def initialize_ai_hog(sprite, vertex):
     sprite.get_state('MAZE').reset_edge_visits(
         GAME.current_maze.maze_graph.edges)
-    sprite.get_state('MAZE').current_vertex = starting_vertex
-    starting_vertex.increment_sprite_visit_count(sprite)
-    sprite.get_component('RILEARNING').update()
+    sprite.get_state('MAZE').current_vertex = vertex
+    vertex.increment_sprite_visit_count(sprite)
+    # sprite.get_component('RILEARNING').update()
     set_next_dest_from_pi_a_s(sprite)
     GAME.add_ai_hoggy(sprite)
 
@@ -114,6 +123,10 @@ def collision_ai_destinations(sprite_group):
     for sprite in sprite_group:
         if not sprite.get_state('MAZE').end:
             if sprite.get_component('AI').reached_destination():
+                vertex = GAME.current_maze.vertex_from_point(
+                    sprite.get_component('AI').destination)
+                sprite.get_state('MAZE').current_vertex = vertex
+                vertex.increment_sprite_visit_count(sprite)
                 if sprite.has_component('RILEARNING'):
                     set_next_dest_from_pi_a_s(sprite)
 
@@ -130,12 +143,15 @@ def handle_collisions():
             'PICKUPS'], hoggy_collision_tomatoes)
     collision_ai_destinations(GAME.current_objects[
         'AI_HOGS'])
+    hoggy_collision_exit(GAME.current_objects[
+        'MAIN_PLAYER'].sprite)
 
 
 def game_initialize():
     global WORLD
     global HUD
     global FPS_CLOCK
+    global GAME_CLOCK
     global DEBUGSCREEN
     global DEBUGEVENT
     global DEBUGM
@@ -155,12 +171,13 @@ def game_initialize():
     HUD = pygame.Surface([settings.WINDOW_WIDTH,
                           settings.HUD_OFFSETY]).convert()
     FPS_CLOCK = pygame.time.Clock()
+    GAME_CLOCK = pygame.time.Clock()
     # pygame.time.set_timer(AI_HOGGY_MOVE, MOVE_AI_HOGGY_TIMEOUT)
 
 
 def game_new():
     global GAME
-    GAME = Game()
+    GAME = Game(GAME_CLOCK.get_time())
     starting_vertex = GAME.current_maze.maze_graph.start_vertex
     (x, y) = GAME.current_maze.center_for_vertex(starting_vertex)
     print("CENTER X: {}, CENTER Y: {}".format(x, y))
@@ -194,6 +211,7 @@ def game_new():
         'clickable': ClickableComponent('circle', reset_maze,
                                         **settings.MAZE_STARTING_STATE)
     })
+    nstates = GAME.current_maze.maze_width * GAME.current_maze.maze_height
     ai_hoggy = actor_obj.ActorObject(
         **{'x': x - (settings.SPRITE_SIZE / 2),
            'y': y - (settings.SPRITE_SIZE / 2),
@@ -212,8 +230,7 @@ def game_new():
            RILearningComponent(
                name_instance="ril_ai_hoggy",
                gamma=settings.AI_HOGGY_STARTING_STATS['gamma'],
-               nstates=GAME.current_maze.maze_width * GAME.
-               current_maze.maze_height,
+               nstates=nstates,
                action_space=GAME.action_space, actions=GAME.actions,
                reward_dict=settings.AI_HOGGY_STARTING_STATS['reward_dict'],
                reward_func=GAME.current_maze.maze_graph.set_rewards_table,
@@ -230,22 +247,25 @@ def game_new():
            'maze': MazeState('maze_state'),
            'animation': AnimationComponent(),
            'orientation': OrientationComponent('horizontal', 'right'),
-           'movable': MovableComponent(
-               'ai_hoggy_move', 10),
+           'movable': MovableComponent('ai_hoggy_move', 10),
            'ai': AIComponent(),
            'rilearning':
            RILearningComponent(
                name_instance="ril_ai_hoggy",
                gamma=settings.AI_HOGGY_STARTING_STATS['gamma'],
-               nstates=GAME.current_maze.maze_width * GAME.
-               current_maze.maze_height,
+               nstates=nstates,
                action_space=GAME.action_space, actions=GAME.actions,
                reward_dict=settings.AI_HOGGY_STARTING_STATS['reward_dict'],
                reward_func=GAME.current_maze.maze_graph.set_rewards_table,
                pi_a_s_func=GAME.current_maze.maze_graph.get_pi_a_s)
            })
     initialize_ai_hog(ai_hoggy, starting_vertex)
-    initialize_ai_hog(ai_hoggy_1, starting_vertex)
+    random_state = random.choice(range(nstates))
+    vertex = GAME.current_maze.maze_graph.get_vertex_by_name(random_state)
+    x, y = GAME.current_maze.topleft_sprite_center_in_vertex(
+        vertex, ai_hoggy)
+    ai_hoggy_1.coords = (x, y)
+    initialize_ai_hog(ai_hoggy_1, vertex)
 
     GAME.main_player = main_player
     # GAME.ai_hoggy.get_component('AI').destination = GAME.main_player
@@ -279,6 +299,7 @@ def handle_keys(event):
             GAME.main_player.get_component('PLAYER_INPUT').set_key_up('right')
         if event.key == K_SPACE:
             GAME.main_player.get_component('PLAYER_INPUT').set_key_up('eat')
+            print("key up eat")
             GAME.main_player.get_component('PLAYER_INPUT').just_ate = False
         if event.key == K_d:
             settings.IS_DEBUG = not settings.IS_DEBUG

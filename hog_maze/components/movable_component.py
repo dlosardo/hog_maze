@@ -6,6 +6,7 @@ class MovableComponent(HogMazeComponent):
         super(MovableComponent, self).__init__('MOVABLE')
         self.name_instance = name_instance
         self.speed = speed
+        self.time_since_last_move = 0
         self.velocity = {'x': 0, 'y': 0}
 
     def update(self, **kwargs):
