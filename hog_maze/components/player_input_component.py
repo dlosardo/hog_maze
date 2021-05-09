@@ -14,6 +14,13 @@ class PlayerInputComponent(HogMazeComponent):
                          'right': False,
                          'eat': False}
 
+    def reset_keys(self):
+        self.key_dict = {'up': False,
+                         'down': False,
+                         'left': False,
+                         'right': False,
+                         'eat': False}
+
     def set_key_down(self, event):
         self.key_dict[event] = True
 

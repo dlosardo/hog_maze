@@ -31,6 +31,7 @@ class Game():
                 'HUD')})
         self.previous_mazes = {}
         self.current_maze = None
+        print("GAME CONSTRUCTOR")
         self.reset_maze(**settings.LEVEL_SETTINGS[self.level]['reset_maze'])
         self.is_paused = False
         self.action_space = 4
@@ -82,10 +83,6 @@ class Game():
         if starting_vertex_name is None:
             starting_vertex_name = self.current_maze.generate_starting_vertex()
         self.current_maze.set_maze(starting_vertex_name)
-        print("LEFT: {}".format(self.current_maze.exit_vertex_rect.left))
-        print("RIGHT: {}".format(self.current_maze.exit_vertex_rect.right))
-        print("TOP: {}".format(self.current_maze.exit_vertex_rect.top))
-        print("BOTTOM: {}".format(self.current_maze.exit_vertex_rect.bottom))
         self.current_objects['PICKUPS'].empty()
         self.current_objects['MAZE_WALLS'].empty()
         self.current_objects['MAZE_WALLS'].add(
@@ -95,7 +92,6 @@ class Game():
             starting_vertex = self.current_maze.maze_graph.start_vertex
             (x, y) = self.current_maze.topleft_sprite_center_in_vertex(
                 starting_vertex, self.main_player)
-            print("SETTING HOGGY AGAIN: X {} Y {}".format(x, y))
             self.main_player.set_pos(x, y)
         if self.current_objects['AI_HOGS']:
             starting_vertex = self.current_maze.maze_graph.start_vertex
