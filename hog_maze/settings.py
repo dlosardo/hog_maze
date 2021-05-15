@@ -26,7 +26,10 @@ SPRITE_SHEET_DICT = {0: {'image_filename':
                          'animation_delay': 10},
                      3: {'image_filename': "{}/tomatoes.png".format(path),
                          "ncols": 2,
-                         'animation_delay': 400}
+                         'animation_delay': 400},
+                     4: {'image_filename': "{}/next_level_swap.png".format(path),
+                         "ncols": 2,
+                         "animation_delay": 10}
                      }
 
 HOGGY_STARTING_STATS = {"speed": 13,
@@ -46,6 +49,24 @@ AI_HOGGY_STARTING_STATS = {'default': {"speed": 8,
                                     'gamma': 0.9,
                                     'reward_dict': {'exit_reward': 10,
                                                     'tomato_reward': 1000,
+                                                    'valid_move_reward': -1,
+                                                    'invalid_move_reward': -10000
+                                                    }
+                                    },
+                           'slow': {"speed": 3,
+                                    "sprite_sheet_key": 0,
+                                    'gamma': 0.95,
+                                    'reward_dict': {'exit_reward': 100,
+                                                    'tomato_reward': 0,
+                                                    'valid_move_reward': -1,
+                                                    'invalid_move_reward': -10000
+                                                    }
+                                    },
+                           'exit': {"speed": 8,
+                                    "sprite_sheet_key": 0,
+                                    'gamma': 0.99,
+                                    'reward_dict': {'exit_reward': 100,
+                                                    'tomato_reward': 0,
                                                     'valid_move_reward': -1,
                                                     'invalid_move_reward': -10000
                                                     }
@@ -130,10 +151,11 @@ LEVEL_1_SETTINGS = {
             'seed': MAZE_SEED
         },
     'new_hoggy': True,
-    'n_ai_hogs': 1,
     'add_tomatoes': True,
     'ai_hogs': {'ai_hoggy': 'default',
-                'ai_hoggy_1': 'fast'
+                'ai_hoggy_1': 'exit'
+                # ,
+                # 'ai_hoggy_2': 'slow'
                 }
 }
 
@@ -151,7 +173,6 @@ LEVEL_2_SETTINGS = {
         'seed': MAZE_SEED
      },
     'new_hoggy': False,
-    'n_ai_hogs': 2,
     'add_tomatoes': True,
     'ai_hogs': {'ai_hoggy': 'default',
                 'ai_hoggy_1': 'fast'
@@ -163,7 +184,7 @@ LEVEL_3_SETTINGS = {
     {
         'maze_width': 10,
         'maze_height': 12,
-        'wall_scale': 6,
+        'wall_scale': 10,
         'area_width': WINDOW_WIDTH,
         'area_height': WINDOW_HEIGHT,
         'entrance_direction': MazeDirections.SOUTH,
@@ -172,10 +193,10 @@ LEVEL_3_SETTINGS = {
         'seed': MAZE_SEED
      },
     'new_hoggy': False,
-    'n_ai_hogs': 2,
     'add_tomatoes': True,
     'ai_hogs': {'ai_hoggy': 'default',
-                'ai_hoggy_1': 'fast'
+                'ai_hoggy_1': 'fast',
+                'ai_hoggy_2': 'slow'
                 }
 }
 LEVEL_SETTINGS = {1: LEVEL_1_SETTINGS,

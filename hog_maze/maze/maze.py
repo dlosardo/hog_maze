@@ -105,7 +105,6 @@ class MazeGraph(object):
     def __init__(self, maze_width=4, maze_height=3):
         self.maze_width = maze_width
         self.maze_height = maze_height
-        print("MAZE GRAPH CONSTRUCTOR")
         # self.reset()
         self.path = []
         self.npaths = 0
@@ -122,9 +121,6 @@ class MazeGraph(object):
         self.maze_layout = [[None] * self.maze_width
                             for i in range(0, self.maze_height)
                             ]
-        print(len(self.maze_layout))
-        print(len(self.maze_layout[0]))
-        print(self.maze_layout)
 
     def set_rewards_table(self, actions, reward_dict):
         rewards_table = defaultdict(int)
@@ -335,7 +331,6 @@ class MazeGraph(object):
 
     def any_bottom_unvisited_vertices(self):
         for i in range(0, self.maze_width):
-            # print("I: {}".format(i))
             if not self.maze_layout[self.maze_height - 1][i].is_visited:
                 return True
         return False

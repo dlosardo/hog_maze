@@ -8,6 +8,7 @@ class InventoryState(HogMazeState):
         self.default_start_amt = default_start_amt
         self.name_instance = name_instance
         self.owner = None
+        self.n_removed = 0
         self.reset_inventory_state()
 
     def reset_inventory_state(self):
@@ -27,4 +28,5 @@ class InventoryState(HogMazeState):
         elif self.inventory[item] == 0:
             return
         else:
+            self.n_removed += 1
             self.inventory[item] -= 1

@@ -31,8 +31,6 @@ class Game():
                 'HUD')})
         self.previous_mazes = {}
         self.current_maze = None
-        print("GAME CONSTRUCTOR")
-        self.reset_maze(**settings.LEVEL_SETTINGS[self.level]['reset_maze'])
         self.is_paused = False
         self.action_space = 4
         self.actions = [MazeDirections.NORTH,
