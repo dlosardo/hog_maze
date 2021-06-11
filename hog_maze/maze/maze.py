@@ -2,7 +2,7 @@ import random
 from collections import defaultdict
 import numpy as np
 from hog_maze.util.stack import StackArray
-from hog_maze.maze.ri_learning import RILearningState
+from hog_maze.components.rilearning_component import RILearningState
 
 
 class MazeDirections():

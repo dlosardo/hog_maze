@@ -1,3 +1,4 @@
+import pygame
 import numpy as np
 from hog_maze.components.component import HogMazeComponent
 
@@ -30,8 +31,10 @@ class RILearningComponent(HogMazeComponent):
         self.set_rewards_table()
         self.set_pi_a_s()
         self.initialize_value_function()
-        self.value_iteration()
+        while not self.converged:
+            self.value_iteration()
         self.recalc = False
+        self.just_updated = False
 
     def set_rewards_table(self):
         self.rewards_table = self.reward_func(
@@ -64,6 +67,8 @@ class RILearningComponent(HogMazeComponent):
         self.V[state] = weighted_rewards
 
     def value_iteration(self):
+        calc_clock = pygame.time.Clock()
+        t = 0
         iter = 0
         while True:
             iter += 1
@@ -75,11 +80,16 @@ class RILearningComponent(HogMazeComponent):
                 self.delta = np.max([self.delta, np.abs(old_v - self.V[s])])
             if self.delta < self.theta:
                 self.converged = True
-                print("Convergence in {} interations".format(iter))
+                # print("Convergence in {} interations".format(iter))
                 break
             if iter == self.max_iter:
                 print("No convergence")
                 break
+            calc_clock.tick()
+            t += calc_clock.get_time()
+            if t > 1:
+                # print("Time {}, leaving calc".format(t))
+                return
 
     def greedy_policy(self, state):
         weighted_rewards = [0] * self.action_space
@@ -94,8 +104,23 @@ class RILearningComponent(HogMazeComponent):
 
     def update(self, **kwargs):
         if self.recalc:
-            self.set_rewards_table()
-            self.set_pi_a_s()
+            print("Calculation Step")
+            # print("Convergence is {}".format(self.converged))
+            if self.converged:
+                # print("Already converged, reset tables")
+                self.converged = False
+                self.set_rewards_table()
+                self.set_pi_a_s()
             # self.initialize_value_function()
             self.value_iteration()
-            self.recalc = False
+            if self.converged:
+                self.just_updated = True
+                self.recalc = False
+
+
+class RILearningState(object):
+    def __init__(self, prob, next_state, reward, end):
+        self.prob = prob
+        self.next_state = next_state
+        self.reward = reward
+        self.end = end

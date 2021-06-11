@@ -32,10 +32,10 @@ SPRITE_SHEET_DICT = {0: {'image_filename':
                          "animation_delay": 10}
                      }
 
-HOGGY_STARTING_STATS = {"speed": 13,
+HOGGY_STARTING_STATS = {"speed": 8/FPS,
                         "sprite_sheet_key": 0}
 
-AI_HOGGY_STARTING_STATS = {'default': {"speed": 8,
+AI_HOGGY_STARTING_STATS = {'default': {"speed": 8/FPS,
                                        "sprite_sheet_key": 0,
                                        'gamma': 0.9,
                                        'reward_dict': {'exit_reward': 10,
@@ -44,7 +44,7 @@ AI_HOGGY_STARTING_STATS = {'default': {"speed": 8,
                                                        'invalid_move_reward': -10000
                                                        }
                                        },
-                           'fast': {"speed": 9,
+                           'fast': {"speed": 9/FPS,
                                     "sprite_sheet_key": 0,
                                     'gamma': 0.9,
                                     'reward_dict': {'exit_reward': 10,
@@ -53,7 +53,7 @@ AI_HOGGY_STARTING_STATS = {'default': {"speed": 8,
                                                     'invalid_move_reward': -10000
                                                     }
                                     },
-                           'slow': {"speed": 3,
+                           'slow': {"speed": 3/FPS,
                                     "sprite_sheet_key": 0,
                                     'gamma': 0.95,
                                     'reward_dict': {'exit_reward': 100,
@@ -62,7 +62,7 @@ AI_HOGGY_STARTING_STATS = {'default': {"speed": 8,
                                                     'invalid_move_reward': -10000
                                                     }
                                     },
-                           'exit': {"speed": 8,
+                           'exit': {"speed": 8/FPS,
                                     "sprite_sheet_key": 0,
                                     'gamma': 0.99,
                                     'reward_dict': {'exit_reward': 100,
@@ -152,8 +152,8 @@ LEVEL_1_SETTINGS = {
         },
     'new_hoggy': True,
     'add_tomatoes': True,
-    'ai_hogs': {'ai_hoggy': 'default',
-                'ai_hoggy_1': 'exit'
+    'ai_hogs': {'ai_hoggy': 'default'
+                # 'ai_hoggy_1': 'exit'
                 # ,
                 # 'ai_hoggy_2': 'slow'
                 }
@@ -174,8 +174,7 @@ LEVEL_2_SETTINGS = {
      },
     'new_hoggy': False,
     'add_tomatoes': True,
-    'ai_hogs': {'ai_hoggy': 'default',
-                'ai_hoggy_1': 'fast'
+    'ai_hogs': {'ai_hoggy': 'default'
                 }
 }
 

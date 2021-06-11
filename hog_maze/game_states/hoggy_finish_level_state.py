@@ -21,6 +21,9 @@ class HoggyFinishLevelState(HoggyGameState):
                                               settings.WINDOW_HEIGHT))
         self.prior_level_state = None
 
+    def other_listeners(self, game):
+        pass
+
     def draw_game(self, game):
         self.world.fill(settings.WHITE)
         draw_text(self.world, "Level {} Complete!".format(game.level - 1),

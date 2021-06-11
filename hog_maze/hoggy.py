@@ -80,6 +80,9 @@ class Hoggy(object):
             if collisions:
                 self.handle_collisions()
 
+    def other_listeners(self):
+        self.state.other_listeners(self.game)
+
     def game_loop(self):
         while not self.game_quit:
             while self.game.is_paused:
@@ -87,6 +90,7 @@ class Hoggy(object):
                 for event in events:
                     self.handle_event_paused(event)
             self.event_loop()
+            self.other_listeners()
             self.update_game_state()
             self.draw_game()
 

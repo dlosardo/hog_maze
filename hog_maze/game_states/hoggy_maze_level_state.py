@@ -296,6 +296,12 @@ class HoggyMazeLevelState(HoggyGameState):
         if event.type == KEYUP and event.key == K_p:
             game.is_paused = False
 
+    def other_listeners(self, game):
+        for sp in game.current_objects['AI_HOGS']:
+            if sp.get_component('RILEARNING').just_updated:
+                sp.get_component('RILEARNING').just_updated = False
+                self.set_next_dest_from_pi_a_s(game, sp)
+
     def handle_keys(self, game, event):
         self.debugevent.update(event)
         if event.type == QUIT:

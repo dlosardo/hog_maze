@@ -114,7 +114,6 @@ class Game():
                     ai_hoggy.get_component('RILEARNING').pi_a_s,
                     ai_hoggy)
                 ai_hoggy.get_component('AI').destination = next_dest
-                # self.print_maze_path()
 
     def place_tomatoes(self):
         cubby_vertices = self.current_maze.maze_graph.all_cubby_vertices()

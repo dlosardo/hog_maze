@@ -26,7 +26,6 @@ def hoggy_collision_walls(sprite, colliding_shapes, game):
     for shape in colliding_shapes:
         # Moving right; Hit the left side of the wall
         if sprite.get_component('MOVABLE').velocity['x'] > 0:
-            print("HIT LEFT SIDE OF WALL")
             left_tmp = shape.rect.left
             tmp.append(left_tmp)
         # Moving left; Hit right side of the wall
