@@ -16,12 +16,12 @@ class ClickableComponent(HogMazeComponent):
             self.owner.component_dict['ANIMATION'].is_animating = False
         mousex = kwargs['mousex']
         mousey = kwargs['mousey']
-        event_type = kwargs['event_type']
+        event_list = kwargs['event_list']
         if self.shape == "rectangle":
             cond = lambda x, y: self.owner.rect.collidepoint(x, y)
         elif self.shape == "circle":
             cond = lambda x, y: ((x - self.owner.rect.centerx)**2 +
-                                  (y - self.owner.rect.centery)**2)\
+                                 (y - self.owner.rect.centery)**2)\
                     <= (self.owner.width/2)**2
         if cond(mousex, mousey):
             if not self.mouseover:
@@ -33,7 +33,7 @@ class ClickableComponent(HogMazeComponent):
                 if self.owner.component_dict['ANIMATION']:
                     self.owner.component_dict['ANIMATION'].is_animating = True
             self.mouseover = False
-        if event_type == "MOUSEBUTTONUP":
+        if "MOUSEBUTTONUP" in event_list:
             self.pressed = True
         else:
             self.pressed = False

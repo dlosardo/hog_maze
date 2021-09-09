@@ -7,15 +7,19 @@ class AIComponent(HogMazeComponent):
         super(AIComponent, self).__init__('AI')
         self.destination = destination
 
-    def move_towards(self, other, speed_x, speed_y):
-        dx = np.sign(other.x - self.owner.x)
-        dy = np.sign(other.y - self.owner.y)
-        self.owner.component_dict['MOVABLE'].velocity['x'] = \
-            min(abs(int(other.x) - self.owner.x),
-                speed_x) * dx
-        self.owner.component_dict['MOVABLE'].velocity['y'] = \
-            min(abs(int(other.y) - self.owner.y),
-                speed_y) * dy
+    def move_towards(self, other, speed_x, speed_y, dt):
+        if dt > 0:
+            dx = np.sign(other.x - self.owner.x)
+            dy = np.sign(other.y - self.owner.y)
+            self.owner.component_dict['MOVABLE'].velocity['x'] = \
+                min(abs(int(other.x) - self.owner.x),
+                    dt * speed_x)/dt * dx
+            self.owner.component_dict['MOVABLE'].velocity['y'] = \
+                min(abs(int(other.y) - self.owner.y),
+                    dt * speed_y)/dt * dy
+            # if self.owner.y + dt * self.owner.component_dict['MOVABLE'].velocity['y'] < 0:
+                # import pdb;
+                # pdb.set_trace();
 
     def sprite_within_x_range(self, other, range_value):
         within_x_range = (
@@ -50,7 +54,11 @@ class AIComponent(HogMazeComponent):
     def update(self, **kwargs):
         speed_x = speed_y = self.owner.component_dict[
             'MOVABLE'].speed
+        dt = kwargs['dt']
         self.owner.component_dict['MOVABLE'].reset_velocity()
+        # if self.owner.has_component('RILEARNING'):
+            # if not self.owner.get_component('RILEARNING').converged:
+                # return
         if self.destination:
             try:
                 dest_name = self.destination.name_object
@@ -58,9 +66,10 @@ class AIComponent(HogMazeComponent):
                 dest_name = None
             if dest_name is not None and dest_name == 'hoggy':
                 if not self.sprite_within_range(self.destination, 64):
-                    self.move_towards(self.destination, speed_x, speed_y)
+                    self.move_towards(self.destination, speed_x, speed_y,
+                                      dt)
             else:
-                self.move_towards(self.destination, speed_x, speed_y)
+                self.move_towards(self.destination, speed_x, speed_y, dt)
         if self.owner.component_dict['MOVABLE'].is_moving():
             self.owner.component_dict['ANIMATION'].is_animating = True
         else:

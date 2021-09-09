@@ -2,7 +2,7 @@ import random
 from collections import defaultdict
 import numpy as np
 from hog_maze.util.stack import StackArray
-from hog_maze.maze.ri_learning import RILearningState
+from hog_maze.components.rilearning_component import RILearningState
 
 
 class MazeDirections():
@@ -105,7 +105,7 @@ class MazeGraph(object):
     def __init__(self, maze_width=4, maze_height=3):
         self.maze_width = maze_width
         self.maze_height = maze_height
-        self.reset()
+        # self.reset()
         self.path = []
         self.npaths = 0
 
@@ -199,7 +199,8 @@ class MazeGraph(object):
             return RILearningState(prob=1,
                                    next_state=vertex.name,
                                    reward=reward_dict['exit_reward'],
-                                   end=True)
+                                   end=True,
+                                   is_valid_move=True)
         elif self.valid_move(action, vertex):
             next_vertex = self.adjacent_vertex(vertex, action)
             if next_vertex.has_tomato:
@@ -209,12 +210,14 @@ class MazeGraph(object):
             return RILearningState(prob=1,
                                    next_state=next_vertex.name,
                                    reward=reward,
-                                   end=False)
+                                   end=False,
+                                   is_valid_move=True)
         else:
             return RILearningState(prob=1,
                                    next_state=vertex.name,
                                    reward=reward_dict['invalid_move_reward'],
-                                   end=False)
+                                   end=False,
+                                   is_valid_move=False)
 
     def set_maze_layout(self):
         c = 0
@@ -330,13 +333,13 @@ class MazeGraph(object):
         return False
 
     def any_bottom_unvisited_vertices(self):
-        for i in range(0, self.maze_height):
+        for i in range(0, self.maze_width):
             if not self.maze_layout[self.maze_height - 1][i].is_visited:
                 return True
         return False
 
     def any_top_unvisited_vertices(self):
-        for i in range(0, self.maze_height):
+        for i in range(0, self.maze_width):
             if not self.maze_layout[0][i].is_visited:
                 return True
         return False

@@ -14,6 +14,13 @@ class PlayerInputComponent(HogMazeComponent):
                          'right': False,
                          'eat': False}
 
+    def reset_keys(self):
+        self.key_dict = {'up': False,
+                         'down': False,
+                         'left': False,
+                         'right': False,
+                         'eat': False}
+
     def set_key_down(self, event):
         self.key_dict[event] = True
 
@@ -51,14 +58,17 @@ class PlayerInputComponent(HogMazeComponent):
                         = self.owner.component_dict['MOVABLE'].speed + self.added_speed
         elif self.key_dict['eat']:
             if not self.just_ate:
+                print("N TOMATS: {}".format(
+                    self.owner.get_state('INVENTORY').inventory['tomato']))
+
                 if self.owner.get_state('INVENTORY').inventory['tomato'] > 0:
                     print("EAT TOMATO")
                     self.time_since_last_move = dt
-                    self.added_speed = 5
+                    self.added_speed = 5/settings.FPS
                     self.owner.get_state('INVENTORY').inventory['tomato'] -= 1
                     self.just_ate = True
         if self.time_since_last_move > 0 and self.time_since_last_move < 6000:
-            print("HOGGY SPEED UP!")
+            # print("HOGGY SPEED UP!")
             self.time_since_last_move += dt
         if self.time_since_last_move > 6000:
             print("END HOGGY SPEED UP!")

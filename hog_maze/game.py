@@ -1,5 +1,4 @@
 import hog_maze.settings as settings
-from hog_maze.util.util_draw import draw_text
 import hog_maze.actor_obj as actor_obj
 from hog_maze.maze.maze_game import MazeGame
 from hog_maze.maze.maze import MazeDirections
@@ -8,10 +7,9 @@ from hog_maze.components.animation_component import AnimationComponent
 
 
 class Game():
-    def __init__(self, start_time):
-        self.start_time = start_time
-        print("START TIME: {}".format(start_time))
+    def __init__(self):
         self.maze_number = 0
+        self.level = 1
         self.current_objects = {}
         self.current_objects.update(
             {'MAIN_PLAYER': actor_obj.ActorObjectGroupSingle(
@@ -33,10 +31,7 @@ class Game():
                 'HUD')})
         self.previous_mazes = {}
         self.current_maze = None
-        self.reset_maze(**settings.MAZE_STARTING_STATE)
-        self.set_hud()
         self.is_paused = False
-        self.maze_state_changed = False
         self.action_space = 4
         self.actions = [MazeDirections.NORTH,
                         MazeDirections.SOUTH,
@@ -86,10 +81,6 @@ class Game():
         if starting_vertex_name is None:
             starting_vertex_name = self.current_maze.generate_starting_vertex()
         self.current_maze.set_maze(starting_vertex_name)
-        print("LEFT: {}".format(self.current_maze.exit_vertex_rect.left))
-        print("RIGHT: {}".format(self.current_maze.exit_vertex_rect.right))
-        print("TOP: {}".format(self.current_maze.exit_vertex_rect.top))
-        print("BOTTOM: {}".format(self.current_maze.exit_vertex_rect.bottom))
         self.current_objects['PICKUPS'].empty()
         self.current_objects['MAZE_WALLS'].empty()
         self.current_objects['MAZE_WALLS'].add(
@@ -99,7 +90,6 @@ class Game():
             starting_vertex = self.current_maze.maze_graph.start_vertex
             (x, y) = self.current_maze.topleft_sprite_center_in_vertex(
                 starting_vertex, self.main_player)
-            print("SETTING HOGGY AGAIN: X {} Y {}".format(x, y))
             self.main_player.set_pos(x, y)
         if self.current_objects['AI_HOGS']:
             starting_vertex = self.current_maze.maze_graph.start_vertex
@@ -113,18 +103,13 @@ class Game():
                     'MAZE').current_vertex = self.current_maze.vertex_from_x_y(
                         x, y)
                 ai_hoggy.get_state('INVENTORY').reset_inventory_state()
-                ai_hoggy.reward_func = (self.current_maze.maze_graph.
-                                        set_rewards_table)
-                ai_hoggy.pi_a_s_func = self.current_maze.maze_graph.get_pi_a_s
-                ai_hoggy.get_component(
-                    'RILEARNING').initialize_value_function()
-                ai_hoggy.get_component('RILEARNING').recalc = True
-                ai_hoggy.get_component('RILEARNING').update()
+                ai_hoggy.get_component('RILEARNING').reset(
+                    self.current_maze.maze_graph.set_rewards_table,
+                    self.current_maze.maze_graph.get_pi_a_s)
                 next_dest = self.current_maze.next_dest_from_pi_a_s(
                     ai_hoggy.get_component('RILEARNING').pi_a_s,
                     ai_hoggy)
                 ai_hoggy.get_component('AI').destination = next_dest
-                # self.print_maze_path()
 
     def place_tomatoes(self):
         cubby_vertices = self.current_maze.maze_graph.all_cubby_vertices()
@@ -145,42 +130,6 @@ class Game():
                 tomato.set_pos(x, y)
                 cubby_vertex.has_tomato = True
                 self.current_objects['PICKUPS'].add(tomato)
-
-    def set_hud(self):
-        tomato = actor_obj.ActorObject(
-            **{'x': 10, 'y': 10,
-               'height': settings.TOMATO_STATE['height'],
-               'width': settings.TOMATO_STATE['width'],
-               'sprite_sheet_key': settings.TOMATO_STATE['sprite_sheet_key'],
-               'in_hud': True,
-               'name_object': 'hud_tomato'
-               })
-        self.current_objects['HUD'].add(tomato)
-
-    def draw_to_hud(self, hud):
-        ntomatoes = self.main_player.get_state(
-              'INVENTORY').inventory.get('tomato')
-        draw_text(hud, "x",
-                  24, 55, 28, settings.ORANGE)
-        draw_text(hud, "{}".format(ntomatoes),
-                  40, 75, 30, settings.ORANGE)
-
-    def print_game_state(self, time_elapsed):
-        game_state_dict = {}
-        for ai_hog in self.current_objects['AI_HOGS']:
-            game_state_dict.update({
-                ai_hog.name_object: {
-                    "ntomatoes": ai_hog.get_state(
-                        'INVENTORY').inventory.get('tomato')}
-                })
-        game_state_dict.update({
-            self.main_player.name_object: {
-                "ntomatoes": self.main_player.get_state(
-                    'INVENTORY').inventory.get('tomato')}
-            })
-        game_state_dict.update({
-            'time_elapsed': time_elapsed})
-        print(game_state_dict)
 
     def print_maze_path(self):
         maze_path = ""

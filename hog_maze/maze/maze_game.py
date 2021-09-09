@@ -215,6 +215,10 @@ class MazeGame(object):
 
     def next_dest_from_pi_a_s(self, pi_a_s, sprite):
         vertex = self.vertex_from_x_y(*sprite.coords)
+        if vertex is None:
+            print("Vertex is None, sprite coords: {}".format(
+                sprite.coords))
+            # import pdb;pdb.set_trace();
         action_probs = pi_a_s[vertex.name]
         action = index_from_prob_dist(action_probs)
         if vertex.is_exit_vertex:
