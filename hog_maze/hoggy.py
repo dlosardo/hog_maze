@@ -22,7 +22,7 @@ class Hoggy(object):
         pygame.init()
         self.fps_clock = pygame.time.Clock()
 
-    def update_components(self, dt, mousex, mousey, event_type):
+    def update_components(self, dt, mousex, mousey, event_list):
         for component in COMPONENTS:
             for name, obj in self.game.current_objects.items():
                 for sprite in obj:
@@ -31,7 +31,7 @@ class Hoggy(object):
                             sprite.get_component(component).update(
                                 **{'dt': dt, 'mousex': mousex,
                                    'mousey': mousey,
-                                   'event_type': event_type
+                                   'event_list': event_list
                                    })
                     if sprite.is_dead:
                         sprite.kill()
@@ -68,17 +68,22 @@ class Hoggy(object):
         mousex, mousey = pygame.mouse.get_pos()
         if len(events) == 0:
             events.append("no-action")
+        # if len(events) > 1:
+            # print("EVENTS: {}".format(events))
+        event_list = []
         for event in events:
             if event == "no-action":
                 event_type = event
+                event_list.append(event_type)
             else:
                 event_type = self.handle_keys(event)
+                event_list.append(event_type)
             if event_type == "QUIT":
                 self.game_quit = True
                 continue
-            self.update_components(dt, mousex, mousey, event_type)
-            if collisions:
-                self.handle_collisions()
+        self.update_components(dt, mousex, mousey, event_list)
+        if collisions:
+            self.handle_collisions()
 
     def other_listeners(self):
         self.state.other_listeners(self.game)

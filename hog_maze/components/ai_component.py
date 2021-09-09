@@ -17,6 +17,9 @@ class AIComponent(HogMazeComponent):
             self.owner.component_dict['MOVABLE'].velocity['y'] = \
                 min(abs(int(other.y) - self.owner.y),
                     dt * speed_y)/dt * dy
+            # if self.owner.y + dt * self.owner.component_dict['MOVABLE'].velocity['y'] < 0:
+                # import pdb;
+                # pdb.set_trace();
 
     def sprite_within_x_range(self, other, range_value):
         within_x_range = (

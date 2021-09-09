@@ -199,7 +199,8 @@ class MazeGraph(object):
             return RILearningState(prob=1,
                                    next_state=vertex.name,
                                    reward=reward_dict['exit_reward'],
-                                   end=True)
+                                   end=True,
+                                   is_valid_move=True)
         elif self.valid_move(action, vertex):
             next_vertex = self.adjacent_vertex(vertex, action)
             if next_vertex.has_tomato:
@@ -209,12 +210,14 @@ class MazeGraph(object):
             return RILearningState(prob=1,
                                    next_state=next_vertex.name,
                                    reward=reward,
-                                   end=False)
+                                   end=False,
+                                   is_valid_move=True)
         else:
             return RILearningState(prob=1,
                                    next_state=vertex.name,
                                    reward=reward_dict['invalid_move_reward'],
-                                   end=False)
+                                   end=False,
+                                   is_valid_move=False)
 
     def set_maze_layout(self):
         c = 0

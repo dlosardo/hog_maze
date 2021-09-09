@@ -17,8 +17,10 @@ class HoggyFinishLevelState(HoggyGameState):
 
     def initialize_state(self):
         print("Initialize Finish Level State")
-        self.world = pygame.display.set_mode((settings.WINDOW_WIDTH,
-                                              settings.WINDOW_HEIGHT))
+        self.world = pygame.display.set_mode((settings.WINDOW_WIDTH +
+                                              settings.HUD_OFFSETX,
+                                              settings.WINDOW_HEIGHT +
+                                              settings.HUD_OFFSETY))
         self.prior_level_state = None
 
     def other_listeners(self, game):

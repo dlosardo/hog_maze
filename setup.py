@@ -26,7 +26,8 @@ setup(name='hog_maze',
       packages=['hog_maze', 'hog_maze/components',
                 'hog_maze/util', 'hog_maze/states',
                 'hog_maze/debug', 'hog_maze/maze',
-                'hog_maze/game_states'
+                'hog_maze/game_states',
+                'hog_maze/assets'
                 ],
       package_dir={'hog_maze': 'hog_maze'},
       scripts=['hog_maze/hoggy.py'],

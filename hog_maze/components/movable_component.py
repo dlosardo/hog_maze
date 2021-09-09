@@ -12,6 +12,9 @@ class MovableComponent(HogMazeComponent):
     def update(self, **kwargs):
         self.owner.x += kwargs['dt'] * self.velocity['x']
         self.owner.y += kwargs['dt'] * self.velocity['y']
+        # if self.owner.y < 0:
+            # import pdb;
+            # pdb.set_trace();
 
     def is_moving(self):
         return self.velocity['x'] != 0 or self.velocity['y'] != 0

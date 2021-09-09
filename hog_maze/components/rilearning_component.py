@@ -1,6 +1,7 @@
 import pygame
 import numpy as np
 from hog_maze.components.component import HogMazeComponent
+from hog_maze.util.util import index_from_prob_dist
 
 
 class RILearningComponent(HogMazeComponent):
@@ -16,8 +17,6 @@ class RILearningComponent(HogMazeComponent):
         self.action_space = action_space
         self.actions = actions
         self.reward_dict = reward_dict
-        self.reward_func = reward_func
-        self.pi_a_s_func = pi_a_s_func
         if theta is None:
             self.theta = .1
         else:
@@ -26,6 +25,11 @@ class RILearningComponent(HogMazeComponent):
             self.max_iter = 1000
         else:
             self.max_iter = max_iter
+        self.reset(reward_func, pi_a_s_func)
+
+    def reset(self, reward_func, pi_a_s_func):
+        self.reward_func = reward_func
+        self.pi_a_s_func = pi_a_s_func
         self.delta = 0
         self.converged = False
         self.set_rewards_table()
@@ -42,6 +46,10 @@ class RILearningComponent(HogMazeComponent):
 
     def set_pi_a_s(self):
         self.pi_a_s = self.pi_a_s_func(self.actions)
+
+    def print_pi_a_s(self):
+        for s, p in zip(self.states, self.pi_a_s):
+            print("{}: {}".format(p, s))
 
     def initialize_value_function(self):
         self.V = np.zeros(self.nstates)
@@ -98,29 +106,93 @@ class RILearningComponent(HogMazeComponent):
             weighted_rewards[a] = ril_obj.prob * (
                 ril_obj.reward + (self.gamma * self.V[ril_obj.next_state]))
         best_action = np.argmax(weighted_rewards)
+        # print("STATE: {}".format(state))
+        # print("Best Action: {}".format(best_action))
+        # print("Weighted Rewards: {}".format(weighted_rewards))
         best_pi_a_s = np.array([1 if best_action == a else 0
                                 for a in self.actions])
         self.pi_a_s[state] = best_pi_a_s
 
+    def infinite_loop_check_recursion(self, state, previous_state):
+        if state == previous_state:
+            return
+        action_probs = self.pi_a_s[state]
+        action = index_from_prob_dist(action_probs)
+        ril_obj = self.rewards_table[state][action]
+        if ril_obj.end:
+            return
+        next_state = self.rewards_table[state][action].next_state
+        if next_state == previous_state:
+            print("State {} and {} are an infinite loop".format(state,
+                                                                next_state))
+            self.infinite_loops.append((state, next_state))
+            return True
+        else:
+            return self.infinite_loop_check_recursion(next_state, state)
+
+    def check_for_infinite_loops(self):
+        self.infinite_loops = []
+        state = 0
+        action_probs = self.pi_a_s[state]
+        action = index_from_prob_dist(action_probs)
+        next_state = self.rewards_table[state][action].next_state
+        if self.infinite_loop_check_recursion(next_state, state):
+            print("Infinite loops are {}".format(self.infinite_loops))
+            for i in self.infinite_loops:
+                print("pi_a_s for state {}: {}".format(
+                    i[0], self.pi_a_s[i[0]]))
+                print("pi_a_s for state {}: {}".format(
+                    i[1], self.pi_a_s[i[1]]))
+                print("Rewards table for state {}: {}".format(i[0], self.rewards_table[i[0]]))
+            inf_loop = self.infinite_loops[0]
+            state_1 = inf_loop[0]
+            state_2 = inf_loop[1]
+            actions = self.pi_a_s[state_2]
+            action = np.argmax(actions)
+            other_valid_moves = [a
+                                 for a in list(self.rewards_table[state_2].keys())
+                                 if self.rewards_table[state_2][a].is_valid_move and a != action
+                                 ]
+            print("other valid moves: {}".format(other_valid_moves))
+            if len(other_valid_moves) > 0:
+                m = other_valid_moves[0]
+                self.pi_a_s[state_2][action] = .5
+                self.pi_a_s[state_2][m] = .5
+            else:
+                actions = self.pi_a_s[state_1]
+                action = np.argmax(actions)
+                other_valid_moves = [a
+                                     for a in list(self.rewards_table[state_1].keys())
+                                     if self.rewards_table[state_1][a].is_valid_move and a != action
+                                     ]
+                print("other valid moves: {}".format(other_valid_moves))
+                if len(other_valid_moves) > 0:
+                    m = other_valid_moves[0]
+                    self.pi_a_s[state_1][action] = .5
+                    self.pi_a_s[state_1][m] = .5
+
     def update(self, **kwargs):
         if self.recalc:
-            print("Calculation Step")
+            # print("Calculation Step")
             # print("Convergence is {}".format(self.converged))
             if self.converged:
-                # print("Already converged, reset tables")
+                print("Already converged, reset tables")
                 self.converged = False
                 self.set_rewards_table()
                 self.set_pi_a_s()
             # self.initialize_value_function()
             self.value_iteration()
             if self.converged:
+                print("Converged!")
+                # self.check_for_infinite_loops()
                 self.just_updated = True
                 self.recalc = False
 
 
 class RILearningState(object):
-    def __init__(self, prob, next_state, reward, end):
+    def __init__(self, prob, next_state, reward, end, is_valid_move):
         self.prob = prob
         self.next_state = next_state
         self.reward = reward
         self.end = end
+        self.is_valid_move = is_valid_move

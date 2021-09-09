@@ -218,6 +218,7 @@ class MazeGame(object):
         if vertex is None:
             print("Vertex is None, sprite coords: {}".format(
                 sprite.coords))
+            # import pdb;pdb.set_trace();
         action_probs = pi_a_s[vertex.name]
         action = index_from_prob_dist(action_probs)
         if vertex.is_exit_vertex:

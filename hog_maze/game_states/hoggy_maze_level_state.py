@@ -2,7 +2,7 @@ import pygame
 from pygame.locals import (
     QUIT, KEYDOWN, KEYUP, K_UP, K_DOWN,
     K_LEFT, K_RIGHT, MOUSEMOTION,
-    MOUSEBUTTONUP, K_SPACE, K_d, K_p
+    MOUSEBUTTONUP, K_SPACE, K_d, K_p, K_v
 )
 import random
 import hog_maze.settings as settings
@@ -79,6 +79,7 @@ class HoggyMazeLevelState(HoggyGameState):
                    pi_a_s_func=game.current_maze.maze_graph.get_pi_a_s)
                })
         if random_start:
+            random.seed(settings.MAZE_SEED)
             random_state = random.choice(range(nstates))
             starting_vertex = game.current_maze.maze_graph.get_vertex_by_name(
                 random_state)
@@ -252,6 +253,7 @@ class HoggyMazeLevelState(HoggyGameState):
                 vertex.sprite_with_tomato = sprite
                 for sp in game.current_objects['AI_HOGS']:
                     sp.get_component('RILEARNING').recalc = True
+                    sp.get_component('RILEARNING').converged = True
 
     def set_next_dest_from_pi_a_s(self, game, sprite):
         next_dest = game.current_maze.next_dest_from_pi_a_s(
@@ -280,6 +282,7 @@ class HoggyMazeLevelState(HoggyGameState):
                     else:
                         vertex.increment_sprite_visit_count(sprite)
                     if sprite.has_component('RILEARNING'):
+                        # print("update from reaching dest")
                         self.set_next_dest_from_pi_a_s(game, sprite)
 
     def handle_event_paused(self, game, event):
@@ -300,6 +303,7 @@ class HoggyMazeLevelState(HoggyGameState):
         for sp in game.current_objects['AI_HOGS']:
             if sp.get_component('RILEARNING').just_updated:
                 sp.get_component('RILEARNING').just_updated = False
+                print("update from other_listeners")
                 self.set_next_dest_from_pi_a_s(game, sp)
 
     def handle_keys(self, game, event):
@@ -343,6 +347,12 @@ class HoggyMazeLevelState(HoggyGameState):
                 game.main_player.get_component('PLAYER_INPUT').just_ate = False
             if event.key == K_d:
                 settings.IS_DEBUG = not settings.IS_DEBUG
+            if event.key == K_v:
+                for ai_hoggy in game.current_objects['AI_HOGS']:
+                    print(ai_hoggy.name_object)
+                    print(settings.r31(ai_hoggy.get_component('RILEARNING').V))
+                    print(ai_hoggy.get_component('RILEARNING').pi_a_s)
+                    ai_hoggy.get_component('RILEARNING').print_pi_a_s()
             if event.key == K_p:
                 game.is_paused = True
         if event.type == MOUSEMOTION:

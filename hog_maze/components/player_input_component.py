@@ -64,7 +64,7 @@ class PlayerInputComponent(HogMazeComponent):
                 if self.owner.get_state('INVENTORY').inventory['tomato'] > 0:
                     print("EAT TOMATO")
                     self.time_since_last_move = dt
-                    self.added_speed = 5
+                    self.added_speed = 5/settings.FPS
                     self.owner.get_state('INVENTORY').inventory['tomato'] -= 1
                     self.just_ate = True
         if self.time_since_last_move > 0 and self.time_since_last_move < 6000:

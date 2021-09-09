@@ -2,3 +2,4 @@ include hog_maze/assets/hoggy_spritesheet_2.png
 include hog_maze/assets/wall.png
 include hog_maze/assets/refresh_64.png
 include hog_maze/assets/tomatoes.png
+include hog_maze/assets/next_level_swap.png

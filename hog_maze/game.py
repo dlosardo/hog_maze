@@ -103,13 +103,9 @@ class Game():
                     'MAZE').current_vertex = self.current_maze.vertex_from_x_y(
                         x, y)
                 ai_hoggy.get_state('INVENTORY').reset_inventory_state()
-                ai_hoggy.reward_func = (self.current_maze.maze_graph.
-                                        set_rewards_table)
-                ai_hoggy.pi_a_s_func = self.current_maze.maze_graph.get_pi_a_s
-                ai_hoggy.get_component(
-                    'RILEARNING').initialize_value_function()
-                ai_hoggy.get_component('RILEARNING').recalc = True
-                ai_hoggy.get_component('RILEARNING').update()
+                ai_hoggy.get_component('RILEARNING').reset(
+                    self.current_maze.maze_graph.set_rewards_table,
+                    self.current_maze.maze_graph.get_pi_a_s)
                 next_dest = self.current_maze.next_dest_from_pi_a_s(
                     ai_hoggy.get_component('RILEARNING').pi_a_s,
                     ai_hoggy)
