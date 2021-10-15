@@ -56,7 +56,7 @@ class PlayerInputComponent(HogMazeComponent):
             else:
                 self.owner.component_dict['MOVABLE'].velocity['x']\
                         = self.owner.component_dict['MOVABLE'].speed + self.added_speed
-        elif self.key_dict['eat']:
+        if self.key_dict['eat']:
             if not self.just_ate:
                 print("N TOMATS: {}".format(
                     self.owner.get_state('INVENTORY').inventory['tomato']))

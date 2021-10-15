@@ -139,11 +139,16 @@ class HoggyMazeLevelState(HoggyGameState):
         self.set_hud(game)
 
     def draw_debug(self, game, dt):
-        for ai_hoggy in game.current_objects['AI_HOGS']:
-            self.debugscreen.update(ai_hoggy, dt)
-            self.world.blit(self.debugm.text, (0, 400))
-            for i, t in enumerate(self.debugmazestate.text_list):
-                self.world.blit(t, (0, 500 + (i * 30)))
+        # for ai_hoggy in game.current_objects['AI_HOGS']:
+        # self.debugscreen.update(ai_hoggy, dt)
+        # for i, t in enumerate(self.debugscreen.text_list):
+        # self.world.blit(t, (0, 500 + (i * 30)))
+        self.world.blit(self.debugm.text, (0, 400))
+        for i, t in enumerate(self.debugmazestate.text_list):
+            self.world.blit(t, (0, 500 + (i * 30)))
+        # self.debugscreen.update(game.main_player, dt)
+        # for i, t in enumerate(self.debugscreen.text_list):
+            # self.world.blit(t, (0, 500 + (i * 30)))
 
     def set_hud(self, game):
         tomato = actor_obj.ActorObject(
@@ -163,6 +168,8 @@ class HoggyMazeLevelState(HoggyGameState):
                   24, 55, 28, settings.ORANGE)
         draw_text(self.hud, "{}".format(ntomatoes),
                   40, 75, 30, settings.ORANGE)
+        draw_text(self.hud, "SEED: {}".format(game.current_maze.seed),
+                  30, 175, 20, settings.GREEN)
 
     def draw_game(self, game):
         self.world.fill(settings.WHITE)
@@ -292,7 +299,7 @@ class HoggyMazeLevelState(HoggyGameState):
                 mousex - settings.HUD_OFFSETX,
                 mousey - settings.HUD_OFFSETY)
             if vertex:
-                self.debugmazestate.update(vertex)
+                self.debugmazestate.update(vertex, game.current_maze.seed)
                 self.draw_game(game)
                 self.draw_debug(game, 0)
                 pygame.display.update()
@@ -301,15 +308,19 @@ class HoggyMazeLevelState(HoggyGameState):
 
     def other_listeners(self, game):
         for sp in game.current_objects['AI_HOGS']:
-            if sp.get_component('RILEARNING').just_updated:
-                sp.get_component('RILEARNING').just_updated = False
-                print("update from other_listeners")
-                self.set_next_dest_from_pi_a_s(game, sp)
+            if not sp.get_state('MAZE').end:
+                if sp.get_component('RILEARNING').just_updated:
+                    sp.get_component('RILEARNING').just_updated = False
+                    print("update from other_listeners")
+                    self.set_next_dest_from_pi_a_s(game, sp)
 
     def handle_keys(self, game, event):
         self.debugevent.update(event)
         if event.type == QUIT:
             return "QUIT"
+        if (event.type == KEYUP) and (event.key == K_p):
+            game.is_paused = True
+            return "pause-event"
         if event.type == KEYDOWN:
             if event.key == K_UP:
                 game.main_player.get_component('PLAYER_INPUT').set_key_down(
@@ -353,8 +364,6 @@ class HoggyMazeLevelState(HoggyGameState):
                     print(settings.r31(ai_hoggy.get_component('RILEARNING').V))
                     print(ai_hoggy.get_component('RILEARNING').pi_a_s)
                     ai_hoggy.get_component('RILEARNING').print_pi_a_s()
-            if event.key == K_p:
-                game.is_paused = True
         if event.type == MOUSEMOTION:
             mousex, mousey = event.pos
             self.debugm.update(mousex, mousey)
@@ -365,7 +374,7 @@ class HoggyMazeLevelState(HoggyGameState):
                 mousex - settings.HUD_OFFSETX,
                 mousey - settings.HUD_OFFSETY)
             if vertex:
-                self.debugmazestate.update(vertex)
+                self.debugmazestate.update(vertex, game.current_maze.seed)
             return "MOUSEBUTTONUP"
         if event.type in [KEYDOWN, KEYUP]:
             return "player-movement"

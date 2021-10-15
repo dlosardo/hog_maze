@@ -1,8 +1,10 @@
 import pygame
+import traceback
 import hog_maze.settings as settings
 from hog_maze.game import Game
 
-from hog_maze.game_states.hoggy_maze_level_state import HoggyMazeLevelState
+# from hog_maze.game_states.hoggy_maze_level_state import HoggyMazeLevelState
+from hog_maze.game_states.hoggy_start_screen_state import HoggyStartScreenState
 
 
 COMPONENTS = ['RILEARNING', 'PLAYER_INPUT', 'AI', 'MOVABLE', 'ORIENTATION',
@@ -63,7 +65,6 @@ class Hoggy(object):
         self.state.set_game_objects(self.game, **state_kwargs)
 
     def event_loop(self, collisions=True):
-        dt = self.fps_clock.get_time()
         events = pygame.event.get()
         mousex, mousey = pygame.mouse.get_pos()
         if len(events) == 0:
@@ -81,6 +82,10 @@ class Hoggy(object):
             if event_type == "QUIT":
                 self.game_quit = True
                 continue
+            if event_type == "pause-event":
+                print("PAUSE")
+                return
+        dt = self.fps_clock.get_time()
         self.update_components(dt, mousex, mousey, event_list)
         if collisions:
             self.handle_collisions()
@@ -88,13 +93,19 @@ class Hoggy(object):
     def other_listeners(self):
         self.state.other_listeners(self.game)
 
+    def event_loop_paused(self):
+        self.game.freeze_game()
+        while self.game.is_paused:
+            events = pygame.event.get()
+            for event in events:
+                self.handle_event_paused(event)
+
     def game_loop(self):
         while not self.game_quit:
-            while self.game.is_paused:
-                events = pygame.event.get()
-                for event in events:
-                    self.handle_event_paused(event)
             self.event_loop()
+            if self.game.is_paused:
+                self.event_loop_paused()
+                continue
             self.other_listeners()
             self.update_game_state()
             self.draw_game()
@@ -106,10 +117,17 @@ class Hoggy(object):
             self.fps_clock.tick(settings.FPS)
 
     def main(self):
-        self.game_loop()
+        try:
+            self.game_loop()
+            print("SEED: {}".format(settings.MAZE_SEED))
+        except Exception as e:
+            print("{}".format(e))
+            traceback.print_exc()
+            print("SEED: {}".format(settings.MAZE_SEED))
         pygame.quit()
 
 
 if __name__ == '__main__':
-    hoggy = Hoggy(HoggyMazeLevelState)
+    # hoggy = Hoggy(HoggyMazeLevelState)
+    hoggy = Hoggy(HoggyStartScreenState)
     hoggy.main()

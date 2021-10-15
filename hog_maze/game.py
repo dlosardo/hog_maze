@@ -71,6 +71,7 @@ class Game():
             # except Exception:
                 # import pdb; pdb.set_trace()
             self.maze_number += 1
+            self.current_maze.seed += 1
             self.current_maze.reset()
         else:
             self.current_maze = MazeGame(
@@ -130,6 +131,11 @@ class Game():
                 tomato.set_pos(x, y)
                 cubby_vertex.has_tomato = True
                 self.current_objects['PICKUPS'].add(tomato)
+
+    def freeze_game(self):
+        self.main_player.get_component("PLAYER_INPUT").reset_keys()
+        for ai_hog in self.current_objects['AI_HOGS']:
+            pass
 
     def print_maze_path(self):
         maze_path = ""
