@@ -1,6 +1,7 @@
 import numpy as np
 from hog_maze.maze.maze import MazeDirections
 from pathlib import Path
+import random
 path = Path(__file__).parent / "assets"
 
 print("PATH IS NOW: {}".format(path))
@@ -14,7 +15,8 @@ FPS = 30  # frames per second setting
 IS_DEBUG = False
 
 HOGGY_ANIMATION_DELAY = 45
-MAZE_SEED = 11
+seed = random.randint(0, 100000)
+MAZE_SEED = seed  # 11
 
 SPRITE_SHEET_DICT = {0: {'image_filename':
                          "{}/hoggy_spritesheet_2.png".format(path),
@@ -205,3 +207,22 @@ LEVEL_SETTINGS = {1: LEVEL_1_SETTINGS,
                   }
 # LEVEL_3_SETTINGS['new_hoggy'] = True
 # LEVEL_SETTINGS = {1: LEVEL_3_SETTINGS}
+# LEVEL_TEST_SETTINGS = {
+    # 'reset_maze':
+    # {
+        # 'maze_width': 20,
+        # 'maze_height': 5,
+        # 'wall_scale': 10,
+        # 'area_width': WINDOW_WIDTH,
+        # 'area_height': WINDOW_HEIGHT,
+        # 'entrance_direction': MazeDirections.WEST,
+        # 'starting_vertex_name': None,
+        # 'exit_direction': MazeDirections.EAST,
+        # 'seed': MAZE_SEED
+     # },
+    # 'new_hoggy': True,
+    # 'add_tomatoes': True,
+    # 'ai_hogs': {
+                # }
+# }
+# LEVEL_SETTINGS = {1: LEVEL_TEST_SETTINGS}

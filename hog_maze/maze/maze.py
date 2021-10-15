@@ -38,17 +38,19 @@ class Vertex(object):
     def __str__(self):
         return "{}".format(self.name)
 
-    def text_state(self):
+    def text_state(self, seed):
         sprite_with_tomato = "None"
         if self.sprite_with_tomato:
             sprite_with_tomato = self.sprite_with_tomato.name_object
-        text = "WALL NORTH: {}, WALL SOUTH: {}, WALL EAST: {} WALL WEST: {}\n"\
+        text = "SEED: {}\n"\
+               "WALL NORTH: {}, WALL SOUTH: {}, WALL EAST: {} WALL WEST: {}\n"\
                "HAS TOMATO: {}, SPRITE WITH TOMATO: {}\n"\
                "NAME: {}, ROW: {}, COL: {}\n"\
                "SPRITE VISITS: {}\n"\
                "IS EXIT VERTEX: {} IS ENTRANCE VERTEX {}\n"\
                "TOP VERTEX: {}, RIGHT VERTEX: {}".format(
-                   self.north_wall, self.south_wall, self.east_wall,
+                   seed, self.north_wall, self.south_wall,
+                   self.east_wall,
                    self.west_wall, self.has_tomato, sprite_with_tomato,
                    self.name, self.row, self.col, self.sprite_visits,
                    self.is_exit_vertex, self.is_entrance_vertex,

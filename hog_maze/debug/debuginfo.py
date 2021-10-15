@@ -10,6 +10,9 @@ class DebugInfo(object):
 
     def update(self, sprite, ticks):
         self.text_list = []
+        self.text_list.append(self.font.render(
+            "SEED: {}".format(settings.MAZE_SEED),
+            True, settings.BLACK, settings.WHITE))
         xy = "X: {} Y: {}".format(sprite.x,
                                   sprite.y)
         if sprite.name_object == 'hoggy':
@@ -37,6 +40,6 @@ class DebugInfo(object):
                         current_vertex.has_tomato,
                         sprite_with_tomato)
             lines = text.splitlines()
-            for l in lines:
+            for li in lines:
                 self.text_list.append(self.font.render(
-                    l, True, settings.BLACK, settings.WHITE))
+                    li, True, settings.BLACK, settings.WHITE))
