@@ -96,6 +96,7 @@ class Hoggy(object):
     def event_loop_paused(self):
         self.game.freeze_game()
         while self.game.is_paused:
+            self.fps_clock.tick(settings.FPS)
             events = pygame.event.get()
             for event in events:
                 self.handle_event_paused(event)

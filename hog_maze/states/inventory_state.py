@@ -7,26 +7,57 @@ class InventoryState(HogMazeState):
         super(InventoryState, self).__init__('INVENTORY')
         self.default_start_amt = default_start_amt
         self.name_instance = name_instance
+        self.set_inventory_dict()
         self.owner = None
-        self.n_removed = 0
-        self.reset_inventory_state()
+
+    def set_inventory_dict(self):
+        self.inventory_dict = {}
+
+    def add_inventory_type(self, inventory_type, starting_amt):
+        if inventory_type not in self.inventory_dict.keys():
+            self.inventory_dict.update({inventory_type:
+                                        Inventory(inventory_type,
+                                                  starting_amt)})
+
+    def add_item(self, item):
+        if item in self.inventory_dict.keys():
+            self.inventory_dict[item].add_item()
+
+    def remove_item(self, item):
+        if item not in self.inventory_dict.keys():
+            return
+        else:
+            self.inventory_dict[item].remove_item()
+
+    def get_total_for_item(self, item):
+        return self.inventory_dict[item].current_amt
+
+    def get_nremoved_for_item(self, item):
+        return self.inventory_dict[item].removal_tracking
 
     def reset_inventory_state(self):
         self.inventory = {self.name_instance:
                           self.default_start_amt
                           }
 
-    def add_item(self, item):
-        if item not in self.inventory.keys():
-            self.inventory[item] = 1
-        else:
-            self.inventory[item] += 1
 
-    def remove_item(self, item):
-        if item not in self.inventory.keys():
-            return
-        elif self.inventory[item] == 0:
+class Inventory(object):
+    def __init__(self, inventory_type, default_starting_amt):
+        self.inventory_type = inventory_type
+        self.default_starting_amt = default_starting_amt
+        self.current_amt = self.default_starting_amt
+        self.removal_tracking = 0
+
+    def add_item(self):
+        self.current_amt += 1
+
+    def remove_item(self):
+        if self.current_amt == 0:
             return
         else:
-            self.n_removed += 1
-            self.inventory[item] -= 1
+            self.current_amt -= 1
+            self.removal_tracking += 1
+
+    def reset(self):
+        self.current_amt = self.default_starting_amt
+        self.removal_tracking = 0

@@ -13,7 +13,7 @@ class HoggyFinishLevelState(HoggyLevelTransitionState):
 
     def __init__(self):
         super().__init__()
-        self.TOMATO_TEXT = "You have {} tomatoes from this level."
+        self.TOMATO_TEXT = """You have {ntomatoes} tomatoes and ate {ntomatoes_removed} total tomatoes"""
 
     def initialize_state(self):
         print("Initialize Finish Level State")
@@ -29,7 +29,10 @@ class HoggyFinishLevelState(HoggyLevelTransitionState):
                   45, 350, 100, settings.ORANGE)
         if self.prior_level_state:
             ntomatoes = self.prior_level_state["hoggy"]["ntomatoes"]
-            level_state_text = self.TOMATO_TEXT.format(ntomatoes)
+            ntomatoes_removed = self.prior_level_state[
+                "hoggy"]["ntomatoes_removed"]
+            level_state_text = self.TOMATO_TEXT.format(
+                ntomatoes=ntomatoes, ntomatoes_removed=ntomatoes_removed)
             if ntomatoes == 1:
                 level_state_text = level_state_text.replace("es", "")
             draw_text(self.world, level_state_text,

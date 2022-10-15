@@ -60,7 +60,7 @@ class HoggyMazeLevelState(HoggyGameState):
                'height': settings.SPRITE_SIZE, 'width': settings.SPRITE_SIZE,
                'sprite_sheet_key': ai_hoggy_stats['sprite_sheet_key'],
                'name_object': ai_hoggy_name,
-               'inventory': InventoryState('tomato'),
+               'inventory': InventoryState('ai_hoggy_inventory'),
                'maze': MazeState('maze_state'),
                'animation': AnimationComponent(),
                'orientation': OrientationComponent('horizontal', 'right'),
@@ -78,6 +78,7 @@ class HoggyMazeLevelState(HoggyGameState):
                    reward_func=game.current_maze.maze_graph.set_rewards_table,
                    pi_a_s_func=game.current_maze.maze_graph.get_pi_a_s)
                })
+        ai_hoggy.get_state('INVENTORY').add_inventory_type('tomato', 0)
         if random_start:
             random.seed(settings.MAZE_SEED)
             random_state = random.choice(range(nstates))
@@ -110,8 +111,9 @@ class HoggyMazeLevelState(HoggyGameState):
                    'movable': MovableComponent('hoggy_move',
                                                settings.HOGGY_STARTING_STATS[
                                                    'speed']),
-                   'inventory': InventoryState('tomato')
+                   'inventory': InventoryState('main_player_inventory')
                    })
+            main_player.get_state('INVENTORY').add_inventory_type('tomato', 0)
             print("HOGGY X: {}, HOGGY Y: {}".format(main_player.x,
                                                     main_player.y))
             game.main_player = main_player
@@ -163,7 +165,7 @@ class HoggyMazeLevelState(HoggyGameState):
 
     def draw_to_hud(self, game):
         ntomatoes = game.main_player.get_state(
-              'INVENTORY').inventory.get('tomato')
+              'INVENTORY').get_total_for_item('tomato')
         draw_text(self.hud, "x",
                   24, 55, 28, settings.ORANGE)
         draw_text(self.hud, "{}".format(ntomatoes),
@@ -192,39 +194,40 @@ class HoggyMazeLevelState(HoggyGameState):
         if sprite.rect.colliderect(game.current_maze.exit_vertex_rect):
             print("HOGGY FOUND EXIT")
             self.level_clock.tick()
-            level_state = self.print_level_state(game,
-                                                 self.level_clock.get_time())
+            level_state = self.set_level_state(game,
+                                               self.level_clock.get_time())
+            print(f"LEVEL STATE {level_state}")
             self.done = True
             game.level += 1
             game.current_maze = None
             from hog_maze.game_states.hoggy_finish_level_state import (
                 HoggyFinishLevelState)
             self.next_state = HoggyFinishLevelState
-            if "prior_level_state" in self.state_kwargs.keys():
-                prior_level_state = self.state_kwargs['prior_level_state']
-                tomatoes_last_level = prior_level_state[
-                    game.main_player.name_object]['ntomatoes']
-                level_state[game.main_player.name_object][
-                    'ntomatoes'] -= tomatoes_last_level
             self.state_kwargs = {'prior_level_state': level_state}
             self.empty_current_objects(game,
                                        ['MAZE_WALLS', 'PICKUPS',
                                         'HUD', 'UI_BUTTONS',
                                         'AI_HOGS'])
 
-    def print_level_state(self, game, time_elapsed):
+    def set_level_state(self, game, time_elapsed):
         level_state_dict = {}
         for ai_hog in game.current_objects['AI_HOGS']:
             level_state_dict.update({
                 ai_hog.name_object: {
                     "ntomatoes": ai_hog.get_state(
-                        'INVENTORY').inventory.get('tomato')}
-                })
+                        'INVENTORY').get_total_for_item('tomato'),
+                    "ntomatoes_removed": ai_hog.get_state(
+                        'INVENTORY').get_nremoved_for_item('tomato')
+                }
+            })
         level_state_dict.update({
             game.main_player.name_object: {
                 "ntomatoes": game.main_player.get_state(
-                    'INVENTORY').inventory.get('tomato')}
-            })
+                    'INVENTORY').get_total_for_item('tomato'),
+                "ntomatoes_removed": game.main_player.get_state(
+                    'INVENTORY').get_nremoved_for_item('tomato')
+            }
+        })
         level_state_dict.update({
             'time_elapsed': time_elapsed})
         return(level_state_dict)
