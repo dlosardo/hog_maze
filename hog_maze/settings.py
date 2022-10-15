@@ -143,8 +143,8 @@ r31 = np.vectorize(format_float)
 LEVEL_1_SETTINGS = {
     'reset_maze':
         {
-            'maze_width': 5,
-            'maze_height': 4,
+            'maze_width': 6,
+            'maze_height': 8,
             'wall_scale': 6,
             'area_width': WINDOW_WIDTH,
             'area_height': WINDOW_HEIGHT,
@@ -155,7 +155,7 @@ LEVEL_1_SETTINGS = {
         },
     'new_hoggy': True,
     'add_tomatoes': True,
-    'ai_hogs': {'ai_hoggy': 'default'
+    'ai_hogs': {'ai_hoggy': 'fast'
                 # 'ai_hoggy_1': 'exit'
                 # ,
                 # 'ai_hoggy_2': 'slow'

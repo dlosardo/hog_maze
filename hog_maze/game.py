@@ -47,9 +47,9 @@ class Game():
         self.current_objects['MAIN_PLAYER'].add(
             main_player_sprite)
 
-    def get_ai_hoggy(self, ai_hoggy_sprite):
+    def get_ai_hoggy(self, ai_hoggy_name):
         for ai_hog in self.current_objects['AI_HOGS']:
-            if ai_hog.name_instance == ai_hoggy_sprite.name_instance:
+            if ai_hog.name_object == ai_hoggy_name:
                 return ai_hog
 
     def add_ai_hoggy(self, ai_hoggy_sprite):
@@ -103,7 +103,7 @@ class Game():
                 ai_hoggy.get_state(
                     'MAZE').current_vertex = self.current_maze.vertex_from_x_y(
                         x, y)
-                ai_hoggy.get_state('INVENTORY').reset_inventory_state()
+                ai_hoggy.get_state('INVENTORY').set_inventory_dict()
                 ai_hoggy.get_component('RILEARNING').reset(
                     self.current_maze.maze_graph.set_rewards_table,
                     self.current_maze.maze_graph.get_pi_a_s)

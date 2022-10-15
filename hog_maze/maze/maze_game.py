@@ -225,6 +225,7 @@ class MazeGame(object):
             if action == self.maze_graph.exit_direction:
                 point = self.exit_coords_for_vertex(vertex, sprite)
                 sprite.get_state('MAZE').end = True
+                sprite.get_component('RILEARNING').recalc = False
                 return point
         next_vertex = self.maze_graph.adjacent_vertex(vertex, action)
         (x_dest,

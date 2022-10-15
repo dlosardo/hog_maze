@@ -59,13 +59,13 @@ class PlayerInputComponent(HogMazeComponent):
         if self.key_dict['eat']:
             if not self.just_ate:
                 print("N TOMATS: {}".format(
-                    self.owner.get_state('INVENTORY').inventory['tomato']))
+                    self.owner.get_state('INVENTORY').get_total_for_item('tomato')))
 
-                if self.owner.get_state('INVENTORY').inventory['tomato'] > 0:
+                if self.owner.get_state('INVENTORY').get_total_for_item('tomato') > 0:
                     print("EAT TOMATO")
                     self.time_since_last_move = dt
                     self.added_speed = 5/settings.FPS
-                    self.owner.get_state('INVENTORY').inventory['tomato'] -= 1
+                    self.owner.get_state('INVENTORY').remove_item('tomato')
                     self.just_ate = True
         if self.time_since_last_move > 0 and self.time_since_last_move < 6000:
             # print("HOGGY SPEED UP!")

@@ -11,8 +11,5 @@ class HogMazeComponent():
     def update(self, *args):
         raise NotImplementedError
 
-    def from_file(self, filename):
-        pass
-
     def get_component_type(self):
         return self._component_type
