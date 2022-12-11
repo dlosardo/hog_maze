@@ -30,9 +30,13 @@ class InventoryState(HogMazeState):
             self.inventory_dict[item].remove_item()
 
     def get_total_for_item(self, item):
+        if item not in self.inventory_dict.keys():
+            return 0
         return self.inventory_dict[item].current_amt
 
     def get_nremoved_for_item(self, item):
+        if item not in self.inventory_dict.keys():
+            return 0
         return self.inventory_dict[item].removal_tracking
 
     def reset_inventory_state(self):

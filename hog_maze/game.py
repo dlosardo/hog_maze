@@ -18,6 +18,9 @@ class Game():
             {'MAZE_WALLS': actor_obj.ActorObjectGroup(
                 'MAZE_WALL')})
         self.current_objects.update(
+            {'ARROWS': actor_obj.ActorObjectGroup(
+                'ARROWS')})
+        self.current_objects.update(
             {'UI_BUTTONS': actor_obj.ActorObjectGroup(
                 'UI_BUTTON')})
         self.current_objects.update(
@@ -86,6 +89,7 @@ class Game():
         self.current_objects['MAZE_WALLS'].empty()
         self.current_objects['MAZE_WALLS'].add(
             self.current_maze.maze_walls)
+        self.current_objects['ARROWS'].empty()
         self.place_tomatoes()
         if self.main_player:
             starting_vertex = self.current_maze.maze_graph.start_vertex
@@ -107,10 +111,18 @@ class Game():
                 ai_hoggy.get_component('RILEARNING').reset(
                     self.current_maze.maze_graph.set_rewards_table,
                     self.current_maze.maze_graph.get_pi_a_s)
+                # next_dest = self.current_maze.next_dest_from_value_matrix(
+                    # ai_hoggy.get_component('RILEARNING').V,
+                    # at_hoggy, True, .5)
                 next_dest = self.current_maze.next_dest_from_pi_a_s(
                     ai_hoggy.get_component('RILEARNING').pi_a_s,
                     ai_hoggy)
                 ai_hoggy.get_component('AI').destination = next_dest
+                if ai_hoggy.name_object == 'ai_hoggy':
+                    self.current_maze.set_arrows(
+                        ai_hoggy.get_component('RILEARNING').pi_a_s)
+                    self.current_objects['ARROWS'].add(
+                        self.current_maze.arrows)
 
     def place_tomatoes(self):
         cubby_vertices = self.current_maze.maze_graph.all_cubby_vertices()
@@ -141,10 +153,10 @@ class Game():
         maze_path = ""
         top_layer = ""
         bottom_layer = ""
-        print(self.current_objects['AI_HOGS'])
-        ai_hoggy = self.current_objects['AI_HOGS'].sprite
-        vertex = self.current_maze.vertex_from_x_y(*ai_hoggy.coords)
-        (ai_hoggy_row, ai_hoggy_col) = vertex.row, vertex.col
+        # print(self.current_objects['AI_HOGS'])
+        # ai_hoggies = [s for s in self.current_objects['AI_HOGS']]
+        # vertex = self.current_maze.vertex_from_x_y(*ai_hoggy.coords)
+        # (ai_hoggy_row, ai_hoggy_col) = vertex.row, vertex.col
         for row in range(0, self.current_maze.maze_height):
             maze_path_below = ""
             maze_path_above = ""
@@ -154,10 +166,10 @@ class Game():
                 data = " "
                 if current_vertex.has_tomato:
                     data = "T"
-                if current_vertex.sprite_visits[self.ai_hoggy.name_object]:
-                    data = "#"
-                if ai_hoggy_row == row and ai_hoggy_col == col:
-                    data = "H"
+                # if current_vertex.sprite_visits[self.ai_hoggy.name_object]:
+                    # data = "#"
+                # if ai_hoggy_row == row and ai_hoggy_col == col:
+                    # data = "H"
                 if not current_vertex.is_right_vertex:
                     wall = self.current_maze.maze_graph.\
                             east_structure_from_vertex(current_vertex)

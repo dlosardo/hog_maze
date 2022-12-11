@@ -63,6 +63,7 @@ class MazeGame(object):
         self.rect = self.image.get_rect()
         self.image.fill(settings.WHITE)
         self.maze_walls = []
+        self.arrows = []
         self.maze_graph.reset()
 
     def set_maze(self, start_vertex_name):
@@ -233,15 +234,16 @@ class MazeGame(object):
              next_vertex, sprite)
         return Point(x_dest, y_dest)
 
-    def next_dest_from_value_matrix(self, V, vertex, sprite,
+    def next_dest_from_value_matrix(self, V, sprite,
                                     max_alg, epsilon):
+        vertex = self.vertex_from_x_y(*sprite.coords)
         valid_actions = self.valid_actions_for_vertex(vertex)
         if vertex.is_exit_vertex:
-            if random.uniform(0, 1) < .5:
+            if random.uniform(0, 1) < -1:
                 point = self.exit_coords_for_vertex(vertex, sprite)
                 sprite.get_state('MAZE').end = True
                 return point
-        if random.uniform(0, 1) < epsilon:
+        if random.uniform(0, 1) < -1:  # epsilon:
             print("Exploring space...")
             rc = random.choice(range(0, len(valid_actions)))
             state = self.maze_graph.adjacent_vertex(
@@ -507,3 +509,33 @@ class MazeGame(object):
                                                     self.cell_height)
         else:
             self.exit_vertex_rect = None
+
+    def set_arrows(self, pi_a_s=None):
+        if pi_a_s is None:
+            return
+        self.arrows = []
+        for box_x in range(0, self.maze_height):
+            for box_y in range(0, self.maze_width):
+                vertex = self.maze_graph.maze_layout[box_x][box_y]
+                arrow = actor_obj.ActorObject(
+                    **{'x': 0, 'y': 0,
+                       'width': settings.ARROW_STATE['width'],
+                       'height': settings.ARROW_STATE['height'],
+                       'sprite_sheet_key': settings.ARROW_STATE[
+                           'sprite_sheet_key'],
+                       'name_object': 'arrow'
+                       })
+                x, y = self.topleft_sprite_center_in_vertex(vertex, arrow)
+                arrow.x = x
+                arrow.y = y
+                best_direction = np.argmax(pi_a_s[vertex.name])
+                if best_direction == 1:
+                    arrow.image = pygame.transform.rotate(
+                        arrow.image, 180)
+                elif best_direction == 2:
+                    arrow.image = pygame.transform.rotate(
+                        arrow.image, 270)
+                elif best_direction == 3:
+                    arrow.image = pygame.transform.rotate(
+                        arrow.image, 90)
+                self.arrows.append(arrow)

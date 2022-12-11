@@ -13,26 +13,29 @@ HUD_OFFSETX = 0
 HUD_OFFSETY = SPRITE_SIZE * 2
 FPS = 30  # frames per second setting
 IS_DEBUG = False
+SHOW_ARROWS = False
 
 HOGGY_ANIMATION_DELAY = 45
 seed = random.randint(0, 100000)
-MAZE_SEED = seed  # 11
+MAZE_SEED = 10
 
 SPRITE_SHEET_DICT = {0: {'image_filename':
-                         "{}/hoggy_spritesheet_2.png".format(path),
+                         f"{path}/hoggy_spritesheet_2.png",
                          'ncols': 4,
                          'animation_delay': HOGGY_ANIMATION_DELAY},
-                     1: {'image_filename': "{}/wall.png".format(path),
+                     1: {'image_filename': f"{path}/wall.png",
                          "ncols": 1},
-                     2: {'image_filename': "{}/refresh_64.png".format(path),
+                     2: {'image_filename': f"{path}/refresh_64.png",
                          "ncols": 2,
                          'animation_delay': 10},
-                     3: {'image_filename': "{}/tomatoes.png".format(path),
+                     3: {'image_filename': f"{path}/tomatoes.png",
                          "ncols": 2,
                          'animation_delay': 400},
-                     4: {'image_filename': "{}/next_level_swap.png".format(path),
+                     4: {'image_filename': f"{path}/next_level_swap.png",
                          "ncols": 2,
-                         "animation_delay": 10}
+                         "animation_delay": 10},
+                     5: {'image_filename': f"{path}/arrow.png",
+                         "ncols": 1}
                      }
 
 HOGGY_STARTING_STATS = {"speed": 8/FPS,
@@ -41,38 +44,41 @@ HOGGY_STARTING_STATS = {"speed": 8/FPS,
 AI_HOGGY_STARTING_STATS = {'default': {"speed": 8/FPS,
                                        "sprite_sheet_key": 0,
                                        'gamma': 0.9,
-                                       'reward_dict': {'exit_reward': 10,
-                                                       'tomato_reward': 1000,
-                                                       'valid_move_reward': -1,
-                                                       'invalid_move_reward': -10000
-                                                       }
+                                       'reward_dict': {
+                                           'exit_reward': 1000,
+                                           'tomato_reward': 100,
+                                           'valid_move_reward': -1,
+                                           'invalid_move_reward': -10
+                                       }
                                        },
                            'fast': {"speed": 9/FPS,
                                     "sprite_sheet_key": 0,
-                                    'gamma': 0.9,
-                                    'reward_dict': {'exit_reward': 10,
-                                                    'tomato_reward': 1000,
+                                    'gamma': .9,
+                                    'reward_dict': {'exit_reward': 1000,
+                                                    'tomato_reward': 10000,
                                                     'valid_move_reward': -1,
-                                                    'invalid_move_reward': -10000
+                                                    'invalid_move_reward': -10
                                                     }
                                     },
                            'slow': {"speed": 3/FPS,
                                     "sprite_sheet_key": 0,
                                     'gamma': 0.95,
-                                    'reward_dict': {'exit_reward': 100,
-                                                    'tomato_reward': 0,
-                                                    'valid_move_reward': -1,
-                                                    'invalid_move_reward': -10000
-                                                    }
+                                    'reward_dict': {
+                                        'exit_reward': 100,
+                                        'tomato_reward': 0,
+                                        'valid_move_reward': -1,
+                                        'invalid_move_reward': -10000
+                                    }
                                     },
                            'exit': {"speed": 8/FPS,
                                     "sprite_sheet_key": 0,
                                     'gamma': 0.99,
-                                    'reward_dict': {'exit_reward': 100,
-                                                    'tomato_reward': 0,
-                                                    'valid_move_reward': -1,
-                                                    'invalid_move_reward': -10000
-                                                    }
+                                    'reward_dict': {
+                                        'exit_reward': 100,
+                                        'tomato_reward': 0,
+                                        'valid_move_reward': -1,
+                                        'invalid_move_reward': -10000
+                                    }
                                     }
                            }
 
@@ -82,9 +88,9 @@ MAZE_STARTING_STATE = {
     'wall_scale': 8,
     'area_width': WINDOW_WIDTH,
     'area_height': WINDOW_HEIGHT,
-    'entrance_direction': MazeDirections.SOUTH,
+    'entrance_direction': MazeDirections.WEST,
     'starting_vertex_name': None,
-    'exit_direction': MazeDirections.SOUTH,
+    'exit_direction': MazeDirections.EAST,
     'seed': MAZE_SEED
 }
 
@@ -98,6 +104,12 @@ MAZE_WALL_STATE = {
     "width": SPRITE_SIZE,
     "height": SPRITE_SIZE * 3,
     "sprite_sheet_key": 1}
+
+ARROW_STATE = {
+    'height': 50,
+    'width': 50,
+    'sprite_sheet_key': 5
+}
 
 LEARNING_STATE = {
     'alpha': 0.3,
@@ -143,14 +155,14 @@ r31 = np.vectorize(format_float)
 LEVEL_1_SETTINGS = {
     'reset_maze':
         {
-            'maze_width': 6,
-            'maze_height': 8,
+            'maze_width': 3,
+            'maze_height': 3,
             'wall_scale': 6,
             'area_width': WINDOW_WIDTH,
             'area_height': WINDOW_HEIGHT,
-            'entrance_direction': MazeDirections.SOUTH,
+            'entrance_direction': MazeDirections.WEST,
             'starting_vertex_name': None,
-            'exit_direction': MazeDirections.SOUTH,
+            'exit_direction': MazeDirections.EAST,
             'seed': MAZE_SEED
         },
     'new_hoggy': True,
@@ -165,8 +177,8 @@ LEVEL_1_SETTINGS = {
 LEVEL_2_SETTINGS = {
     'reset_maze':
     {
-        'maze_width': 8,
-        'maze_height': 8,
+        'maze_width': 6,
+        'maze_height': 6,
         'wall_scale': 4,
         'area_width': WINDOW_WIDTH,
         'area_height': WINDOW_HEIGHT,
@@ -177,7 +189,7 @@ LEVEL_2_SETTINGS = {
      },
     'new_hoggy': False,
     'add_tomatoes': True,
-    'ai_hogs': {'ai_hoggy': 'default'
+    'ai_hogs': {'ai_hoggy': 'fast'
                 }
 }
 

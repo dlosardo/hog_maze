@@ -121,10 +121,14 @@ class Hoggy(object):
         try:
             self.game_loop()
             print("SEED: {}".format(settings.MAZE_SEED))
+            if self.game.current_maze is not None:
+                self.game.print_maze_path()
         except Exception as e:
             print("{}".format(e))
             traceback.print_exc()
             print("SEED: {}".format(settings.MAZE_SEED))
+            if self.game.current_maze is not None:
+                self.game.print_maze_path()
         pygame.quit()
 
 

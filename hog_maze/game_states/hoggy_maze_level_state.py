@@ -2,7 +2,7 @@ import pygame
 from pygame.locals import (
     QUIT, KEYDOWN, KEYUP, K_UP, K_DOWN,
     K_LEFT, K_RIGHT, MOUSEMOTION,
-    MOUSEBUTTONUP, K_SPACE, K_d, K_p, K_v
+    MOUSEBUTTONUP, K_SPACE, K_d, K_p, K_v, K_a
 )
 import random
 import hog_maze.settings as settings
@@ -76,7 +76,9 @@ class HoggyMazeLevelState(HoggyGameState):
                    actions=game.actions,
                    reward_dict=ai_hoggy_stats['reward_dict'],
                    reward_func=game.current_maze.maze_graph.set_rewards_table,
-                   pi_a_s_func=game.current_maze.maze_graph.get_pi_a_s)
+                   pi_a_s_func=game.current_maze.maze_graph.get_pi_a_s,
+                   nrows=game.current_maze.maze_height,
+                   ncols=game.current_maze.maze_width)
                })
         ai_hoggy.get_state('INVENTORY').add_inventory_type('tomato', 0)
         if random_start:
@@ -93,6 +95,7 @@ class HoggyMazeLevelState(HoggyGameState):
         self.state_kwargs = kwargs
         self.level_settings = settings.LEVEL_SETTINGS[game.level]
         game.reset_maze(**self.level_settings['reset_maze'])
+        game.print_maze_path()
         starting_vertex = game.current_maze.maze_graph.start_vertex
         (x, y) = game.current_maze.center_for_vertex(starting_vertex)
         print("CENTER X: {}, CENTER Y: {}".format(x, y))
@@ -179,6 +182,8 @@ class HoggyMazeLevelState(HoggyGameState):
         self.hud.fill(settings.BLACK)
 
         for name, obj in game.current_objects.items():
+            if (name == 'ARROWS') and (not settings.SHOW_ARROWS):
+                continue
             for sprite in obj:
                 if not sprite.in_hud:
                     game.current_maze.image.blit(sprite.image,
@@ -207,7 +212,7 @@ class HoggyMazeLevelState(HoggyGameState):
             self.empty_current_objects(game,
                                        ['MAZE_WALLS', 'PICKUPS',
                                         'HUD', 'UI_BUTTONS',
-                                        'AI_HOGS'])
+                                        'AI_HOGS', 'ARROWS'])
 
     def set_level_state(self, game, time_elapsed):
         level_state_dict = {}
@@ -262,13 +267,20 @@ class HoggyMazeLevelState(HoggyGameState):
                 vertex.has_tomato = False
                 vertex.sprite_with_tomato = sprite
                 for sp in game.current_objects['AI_HOGS']:
-                    sp.get_component('RILEARNING').recalc = True
-                    sp.get_component('RILEARNING').converged = True
+                    if not sp.get_state('MAZE').end:
+                        sp.get_component('RILEARNING').recalc = True
+                        sp.get_component('RILEARNING').converged = True
 
     def set_next_dest_from_pi_a_s(self, game, sprite):
         next_dest = game.current_maze.next_dest_from_pi_a_s(
             sprite.get_component('RILEARNING').pi_a_s,
             sprite)
+        sprite.get_component('AI').destination = next_dest
+
+    def set_next_dest_from_value_matrix(self, game, sprite):
+        next_dest = game.current_maze.next_dest_from_value_matrix(
+            sprite.get_component('RILEARNING').V,
+            sprite, True, .5)
         sprite.get_component('AI').destination = next_dest
 
     def initialize_ai_hog(self, game, sprite, vertex):
@@ -277,6 +289,12 @@ class HoggyMazeLevelState(HoggyGameState):
         sprite.get_state('MAZE').current_vertex = vertex
         vertex.increment_sprite_visit_count(sprite)
         self.set_next_dest_from_pi_a_s(game, sprite)
+        if sprite.name_object == 'ai_hoggy':
+            game.current_maze.set_arrows(
+                sprite.get_component('RILEARNING').pi_a_s)
+            game.current_objects['ARROWS'].add(
+                game.current_maze.arrows)
+        # self.set_next_dest_from_value_matrix(game, sprite)
         game.add_ai_hoggy(sprite)
 
     def collision_ai_destinations(self, sprite_group, game):
@@ -294,6 +312,7 @@ class HoggyMazeLevelState(HoggyGameState):
                     if sprite.has_component('RILEARNING'):
                         # print("update from reaching dest")
                         self.set_next_dest_from_pi_a_s(game, sprite)
+                        # self.set_next_dest_from_value_matrix(game, sprite)
 
     def handle_event_paused(self, game, event):
         if event.type == MOUSEBUTTONUP:
@@ -315,7 +334,14 @@ class HoggyMazeLevelState(HoggyGameState):
                 if sp.get_component('RILEARNING').just_updated:
                     sp.get_component('RILEARNING').just_updated = False
                     print("update from other_listeners")
+                    # self.set_next_dest_from_value_matrix(game, sp)
                     self.set_next_dest_from_pi_a_s(game, sp)
+                    if sp.name_object == 'ai_hoggy':
+                        game.current_objects['ARROWS'].empty()
+                        game.current_maze.set_arrows(
+                            sp.get_component('RILEARNING').pi_a_s)
+                        game.current_objects['ARROWS'].add(
+                            game.current_maze.arrows)
 
     def handle_keys(self, game, event):
         self.debugevent.update(event)
@@ -367,6 +393,9 @@ class HoggyMazeLevelState(HoggyGameState):
                     print(settings.r31(ai_hoggy.get_component('RILEARNING').V))
                     print(ai_hoggy.get_component('RILEARNING').pi_a_s)
                     ai_hoggy.get_component('RILEARNING').print_pi_a_s()
+            if event.key == K_a:
+                settings.SHOW_ARROWS = not settings.SHOW_ARROWS
+
         if event.type == MOUSEMOTION:
             mousex, mousey = event.pos
             self.debugm.update(mousex, mousey)
@@ -380,5 +409,8 @@ class HoggyMazeLevelState(HoggyGameState):
                 self.debugmazestate.update(vertex, game.current_maze.seed)
             return "MOUSEBUTTONUP"
         if event.type in [KEYDOWN, KEYUP]:
-            return "player-movement"
+            if event.key == K_v or event.key == K_a or event.key == K_SPACE:
+                return "OTHER"
+            else:
+                return "player-movement"
         return "no-action"
